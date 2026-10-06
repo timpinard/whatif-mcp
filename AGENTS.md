@@ -5,7 +5,7 @@ whatif-mcp is an MCP server that answers "what if" questions about one person's 
 user describes accounts and recurring money flows through an AI assistant; the server projects
 balances forward and compares a baseline against hypothetical changes. It runs locally over
 stdio, keeps the model in a JSON file the user owns, and has no network or database dependency.
-The projection behavior is ported from the the source project engine (see ADR 0004).
+The projection behavior is ported from an existing engine (ADR 0004).
 
 ## Context docs (read before any task)
 - docs/context/architecture.md
@@ -28,6 +28,9 @@ The projection behavior is ported from the the source project engine (see ADR 00
 4. One task = one PR. Keep diffs reviewable.
 5. If an ADR blocks the approach, stop and report. Do not override.
 6. Log regeneration count in the PR description.
+7. Refer to docs by ID ("ADR NNNN", "Spec NNNN"), not by path. Only ADRs name external systems,
+   repos, files or versions; everything else refers to the ADR. Accepted ADRs are never edited,
+   only superseded, so a stale name in one is history, not rot.
 
 ## Non-goals for agents
 - No dependency additions without an ADR.

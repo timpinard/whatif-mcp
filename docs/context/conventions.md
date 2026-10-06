@@ -21,8 +21,7 @@ prose, anti-pattern list). This file adds what is specific to this repo.
 - Unit: core and store, called directly. Fixed "today" in every test.
 - Integration (`@pytest.mark.integration`): the server driven through an in-process MCP client
   session, against a model file in a temp directory.
-- Parity: numbers ported from the source project are checked against expected values computed by the
-  the source project engine for the same inputs, recorded as fixtures.
+- Expected numbers are hand-checked and the arithmetic is shown in a one-line comment or the AC.
 
 ## Logging and observability
 - `logging` to stderr only. No financial values or account names in logs above DEBUG.

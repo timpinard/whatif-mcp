@@ -1,5 +1,5 @@
 # ADR 0003: Keep the model in a local JSON file
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-06
 - Deciders: Timothy Pinard
 
@@ -8,9 +8,10 @@ Tools build the model up over a conversation, so state must persist between call
 The data is personal and the tool runs on the user's machine.
 
 ## Decision
-One JSON file per model, default `~/.whatif/model.json`, path overridable by environment
-variable. Every write replaces the file atomically (write temp file, then rename), created with
-mode 0600. The file carries a `version` field so the format can change later.
+One JSON file per model, default `~/.whatif/model.json`, path overridable by the
+`WHATIF_MODEL_PATH` environment variable. Every write replaces the file atomically (write temp file, then rename), created with
+mode 0600. The file carries a `version` field so the format can change later. A file that is not valid JSON or
+has an unknown version is an error on every call and is never overwritten.
 
 ## Consequences
 - The user owns, can read, back up and delete their data with ordinary tools.

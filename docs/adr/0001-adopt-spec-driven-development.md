@@ -1,5 +1,5 @@
 # ADR 0001: Adopt spec-driven development with agents
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-06
 - Deciders: Timothy Pinard
 
