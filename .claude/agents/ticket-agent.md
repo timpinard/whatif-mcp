@@ -8,6 +8,7 @@ You write specs. Behavior only, not implementation.
 Input: the request text, plus any source material it points at (existing code, docs, tickets).
 Output: docs/specs/NNNN-kebab-name.md, NNNN = highest existing spec number + 1, Status: draft.
 
+- Run scripts/kit-drift.sh first. If the kit has moved on, say so in your report; do not adopt anything.
 - Read docs/context/ and every ADR first. You may build on proposed ADRs: list each one under
   Links. The spec cannot be approved until they are accepted.
 - Size: one spec = one capability a user would name, about 25 AC at most. If the request is
