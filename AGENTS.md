@@ -1,7 +1,11 @@
-# AGENTS.md (also symlink/copy as CLAUDE.md)
+# AGENTS.md (CLAUDE.md is a symlink to this file)
 
 ## Project
-<one paragraph: what this system does, who uses it>
+whatif-mcp is an MCP server that answers "what if" questions about one person's finances. The
+user describes accounts and recurring money flows through an AI assistant; the server projects
+balances forward and compares a baseline against hypothetical changes. It runs locally over
+stdio, keeps the model in a JSON file the user owns, and has no network or database dependency.
+The projection behavior is ported from the the source project engine (see ADR 0004).
 
 ## Context docs (read before any task)
 - docs/context/architecture.md
@@ -10,11 +14,12 @@
 - docs/adr/ (accepted ADRs are binding)
 
 ## Commands
-- Gates (run all, in order): `scripts/gates.sh`
-- Lint: `<cmd>`
-- Typecheck: `<cmd>`
-- Unit tests: `<cmd>`
-- Integration tests: `<cmd>`
+- Setup: `python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'`
+- Gates (run all, in order): `scripts/gates.sh [docs/specs/NNNN-name.md]`
+- Lint: `.venv/bin/ruff format --check . && .venv/bin/ruff check .`
+- Typecheck: `.venv/bin/mypy src`
+- Unit tests: `.venv/bin/pytest -m "not integration"`
+- Integration tests: `.venv/bin/pytest -m integration`
 
 ## Rules
 1. Work from a spec in docs/specs/. No spec, no code. Ask.

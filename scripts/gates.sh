@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "== lint ==";        : # TODO: your lint command
-echo "== typecheck ==";   : # TODO
-echo "== unit ==";        : # TODO
-echo "== integration =="; : # TODO
+cd "$(dirname "$0")/.."
+echo "== lint ==";        .venv/bin/ruff format --check . && .venv/bin/ruff check .
+echo "== typecheck ==";   .venv/bin/mypy src
+echo "== unit ==";        .venv/bin/pytest -q -m "not integration"
+echo "== integration =="; .venv/bin/pytest -q -m integration
 echo "== AC coverage =="
 # Fails if any AC id in the spec has no matching test in that spec's test files
 SPEC="${1:-}"
