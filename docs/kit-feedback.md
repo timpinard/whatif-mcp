@@ -21,3 +21,5 @@ the retro decides (see the kit README, Process lifecycle).
 | 2026-10-06 | Plan | planner.md | Silent on: greenfield setup task, per-task gate command, task size limit, whether to choose implementation details (SDK style, module seams), whether to plan for later specs | State each explicitly | |
 | 2026-10-06 | Plan | _template-plan.md vs AGENTS.md rule 7 | Template header `Spec: docs/specs/...` is a path; rule 7 says refer by ID | Template: `Spec: Spec NNNN` | |
 | 2026-10-06 | Done | definition-of-done.md | Nobody is assigned to set spec Status: implemented or add the metrics row | Assign to the implementer of the spec's last task | |
+| 2026-10-06 | Plan | _template-adr.md | Superseding only part of an accepted ADR (ADR 0002's environment line, by ADR 0005) has no defined status form | Allow `accepted; <part> superseded by NNNN` in the template | |
+| 2026-10-06 | Plan | (process) | Amending an approved spec before implementation has no defined form | Add an `Amended:` header line and a rule: amendments name the R ids changed and are owner-approved | |

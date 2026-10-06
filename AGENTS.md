@@ -14,12 +14,12 @@ The projection behavior is ported from an existing engine (ADR 0004).
 - docs/adr/ (accepted ADRs are binding)
 
 ## Commands
-- Setup: `python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'`
+- Setup: `uv sync` (ADR 0005)
 - Gates (run all, in order): `scripts/gates.sh [docs/specs/NNNN-name.md]`
-- Lint: `.venv/bin/ruff format --check . && .venv/bin/ruff check .`
-- Typecheck: `.venv/bin/mypy src`
-- Unit tests: `.venv/bin/pytest -m "not integration"`
-- Integration tests: `.venv/bin/pytest -m integration`
+- Lint: `uv run --locked ruff format --check .` then `uv run --locked ruff check .`
+- Typecheck: `uv run --locked mypy src`
+- Unit tests: `uv run --locked pytest -m "not integration"`
+- Integration tests: `uv run --locked pytest -m integration`
 
 ## Rules
 1. Work from a spec in docs/specs/. No spec, no code. Ask.
@@ -31,6 +31,8 @@ The projection behavior is ported from an existing engine (ADR 0004).
 7. Refer to docs by ID ("ADR NNNN", "Spec NNNN"), not by path. Only ADRs name external systems,
    repos, files or versions; everything else refers to the ADR. Accepted ADRs are never edited,
    only superseded, so a stale name in one is history, not rot.
+8. Problems with the process itself (agents, templates, gates) go in docs/kit-feedback.md, not
+   into the kit and not silently worked around.
 
 ## Non-goals for agents
 - No dependency additions without an ADR.

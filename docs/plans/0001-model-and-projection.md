@@ -1,7 +1,7 @@
 # Plan 0001: Model and projection
 - Spec: Spec 0001 (docs/specs/0001-model-and-projection.md)
-- Status: draft
-- Approved by:
+- Status: approved
+- Approved by: Timothy Pinard, 2026-10-06
 
 ## Approach
 Build bottom-up along the dependency direction in docs/context/architecture.md: pure core first,
@@ -56,8 +56,8 @@ Decisions taken here (the role file and templates are silent on them):
 
 ## Components touched
 All new; the repo has no code yet.
-- Build and tooling: `pyproject.toml` (hatchling, runtime `mcp`, dev extra `pytest`, `ruff`,
-  `mypy`; ruff, mypy strict and pytest config, `integration` marker registered with strict
+- Build and tooling: `pyproject.toml` (hatchling, runtime `mcp`, `dev` dependency group `pytest`,
+  `ruff`, `mypy`; `.python-version`, committed `uv.lock` (ADR 0005); ruff, mypy strict and pytest config, `integration` marker registered with strict
   markers), console entry point.
 - `whatif_mcp.core`: domain types and errors, recurrence, projection, today's-money deflation.
 - `whatif_mcp.store`: path resolution, load, atomic save. Imports core types (architecture.md
@@ -77,7 +77,8 @@ example; flow order is the order flows were first added.
 - ADR 0001 (spec-driven): plan and tasks trace every AC of Spec 0001 to one task; no behavior
   beyond the spec. Conforms.
 - ADR 0002 (Python 3.12, MCP SDK): Python 3.12, src layout, hatchling, runtime dependency `mcp`
-  only, dev dependencies pytest, ruff, mypy only, plain venv. The anyio pytest plugin is used
+  only, dev dependencies pytest, ruff, mypy only. ADR 0005: uv environment, committed `uv.lock`, gates
+  through `uv run --locked`. The anyio pytest plugin is used
   through the existing transitive dependency, not added. Conforms; reviewer to confirm
   `pyproject.toml` lists nothing else.
 - ADR 0003 (JSON file): one file, env var override, atomic replace, 0600, `version`, never
@@ -102,7 +103,7 @@ example; flow order is the order flows were first added.
   argument (AC6 `balance="lots"`, AC9 `amount "lots"`), schema-level validation must be turned
   off or the schema kept permissive so our R16 messages reach the client. Also whether the
   SDK's own loggers emit tool arguments at INFO (R19, checked in T7).
-- Environment: T1 needs network access for `pip install -e '.[dev]'`.
+- Environment: T1 needs network access for `uv sync`.
 - AC24 is a wall-clock assertion (under 1 s); it can flake on a loaded machine. The projection
   is event-driven to keep a wide margin.
 - Floating point: AC compare to the cent after many compounding steps (AC21 138437.49,
@@ -110,7 +111,7 @@ example; flow order is the order flows were first added.
 - T2 is the largest task (projection plus rows and summaries). If its non-test diff exceeds
   ~400 lines, split rows and summary (AC20, AC21) into a follow-up task rather than grow it.
 
-Spec gaps (flagged for the owner, not fixed; the plan's working assumption in brackets):
+Spec gaps (resolved by the owner on 2026-10-06 and amended into Spec 0001; the answer in brackets):
 1. How the log level is set is undefined; AC25 says "logging at INFO". [Default INFO on
    stderr, no knob. A knob would be a new runtime input and needs a spec change.]
 2. A file that is valid JSON with `"version": 1` but the wrong shape (missing `accounts`, a
@@ -122,7 +123,7 @@ Spec gaps (flagged for the owner, not fixed; the plan's working assumption in br
 4. Rounding mode to cents is not stated (half-even vs half-up). [Half-up on the unrounded
    value; no current AC sits on a half cent as far as checked.]
 5. Whether an integral float such as `horizon_years=5.0` counts as a whole number (AC22
-   refuses 2.5). [Refused: JSON integer only.]
+   refuses 2.5). [Integral values accepted (5.0); 5.5 refused.]
 6. Whether `set_account` with a balance equal to the stored one moves balance_as_of. [Yes: a
    given balance always sets balance_as_of to today.]
 

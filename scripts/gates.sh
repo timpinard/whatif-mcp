@@ -12,11 +12,11 @@ for path in $(grep -ohE 'docs/[A-Za-z0-9_./-]+\.md' "${DOCS[@]}" | grep -v NNNN 
   [ -e "$path" ] || { echo "Dangling path: $path"; exit 1; }
 done
 echo "== lint =="
-.venv/bin/ruff format --check .
-.venv/bin/ruff check .
-echo "== typecheck ==";   .venv/bin/mypy src
-echo "== unit ==";        .venv/bin/pytest -q -m "not integration"
-echo "== integration =="; .venv/bin/pytest -q -m integration
+uv run --locked ruff format --check .
+uv run --locked ruff check .
+echo "== typecheck ==";   uv run --locked mypy src
+echo "== unit ==";        uv run --locked pytest -q -m "not integration"
+echo "== integration =="; uv run --locked pytest -q -m integration
 echo "== AC coverage =="
 # Fails if any AC id in the spec has no matching test in that spec's test files
 SPEC="${1:-}"

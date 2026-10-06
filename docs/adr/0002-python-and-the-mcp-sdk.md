@@ -1,5 +1,5 @@
 # ADR 0002: Python 3.12 with the official MCP SDK
-- Status: accepted
+- Status: accepted; development environment superseded by ADR 0005
 - Date: 2026-10-06
 - Deciders: Timothy Pinard
 

@@ -1,6 +1,8 @@
 # Spec 0001: Model and projection
 - Status: approved
 - Approved by: Timothy Pinard, 2026-10-06
+- Amended: 2026-10-06, before implementation, by the owner: answers to the plan's spec gaps
+  (R1, R2, R4, R14, R19, rounding under Interfaces).
 - Owner: Timothy Pinard
 - Links: ADR 0001, ADR 0002, ADR 0003, ADR 0004 (all accepted). Foundation for Spec 0002 (what-if),
   Spec 0003 (solve-for, via Spec 0002) and Spec 0004 (bands). Implement this spec first.
@@ -27,10 +29,10 @@ One person, on their own machine, talking to an AI assistant through an MCP clie
 ## Requirements
 | ID | Requirement (behavior, not implementation) |
 |----|--------------------------------------------|
-| R1 | The model lives in one JSON file: path from env var `WHATIF_MODEL_PATH`, else `~/.whatif/model.json` (ADR 0003). A missing file is an empty model (no accounts, no flows, inflation rate 0.03) and is not created by reads. The first write creates missing parent directories and the file with mode 0600. Every write replaces the file atomically; a failed write leaves the previous file intact. The file carries `"version": 1`. A file that is not valid JSON or has another version makes every tool fail with an error naming the path and the problem, and the file is never overwritten in that state. |
-| R2 | `set_account` creates an account (name, kind `asset` or `liability`, balance, optional growth_rate default 0, optional volatility default 0) or, when the name already exists, updates only the fields given. It renames via `new_name`; flows that use the account stay attached. Liability balances are amounts owed, never negative. Each account records `balance_as_of`: the date its balance was last set. Volatility is stored and validated here and used only by bands (Spec 0004). |
+| R1 | The model lives in one JSON file: path from env var `WHATIF_MODEL_PATH`, else `~/.whatif/model.json` (ADR 0003). A missing file is an empty model (no accounts, no flows, inflation rate 0.03) and is not created by reads. The first write creates missing parent directories and the file with mode 0600. Every write replaces the file atomically; a failed write leaves the previous file intact. The file carries `"version": 1`. A file that is not valid JSON or has another version makes every tool fail with an error naming the path and the problem, and the file is never overwritten in that state. A file that is valid JSON with version 1 but does not match the version 1 shape is treated the same as invalid JSON. |
+| R2 | `set_account` creates an account (name, kind `asset` or `liability`, balance, optional growth_rate default 0, optional volatility default 0) or, when the name already exists, updates only the fields given. It renames via `new_name`; flows that use the account stay attached. Liability balances are amounts owed, never negative. Each account records `balance_as_of`: the date its balance was last set. Volatility is stored and validated here and used only by bands (Spec 0004). Giving a balance always sets balance_as_of to today, even when the value is unchanged. |
 | R3 | `remove_account` deletes an account, but refuses while any flow uses it as `from`, `to` or `rate_of`, listing those flows. |
-| R4 | `set_flow` creates a flow (name; optional `from` and `to` accounts, an omitted side being outside; either a fixed `amount` or a `rate` of the `rate_of` account's balance; frequency; start_date default today; optional end_date) or, when the name already exists, updates only the fields given. Giving `amount` to a rate flow makes it fixed and clears rate and rate_of; giving `rate` and `rate_of` to a fixed flow clears amount. A field passed as JSON null clears it (`end_date`, `from`, `to`). It renames via `new_name`. Every result lists `similar_flows`: other flows with the same from, to and frequency. Accounts named in a flow must exist; they are never created by `set_flow`. |
+| R4 | `set_flow` creates a flow (name; optional `from` and `to` accounts, an omitted side being outside; either a fixed `amount` or a `rate` of the `rate_of` account's balance; frequency; start_date default today; optional end_date) or, when the name already exists, updates only the fields given. Giving `amount` to a rate flow makes it fixed and clears rate and rate_of; giving `rate` and `rate_of` to a fixed flow clears amount. A field passed as JSON null clears it (`end_date`, `from`, `to`). It renames via `new_name`. Every result lists `similar_flows`: other flows with the same from, to and frequency. Accounts named in a flow must exist; they are never created by `set_flow`. A fixed `amount` must be greater than 0; a `rate` must be above 0 and at most 1. |
 | R5 | `remove_flow` deletes a flow. |
 | R6 | `set_inflation_rate` sets the model's annual inflation rate used for today's money and returns it with the previous value. |
 | R7 | `show_model` returns today, every account, every flow, the inflation rate, net worth today (from the stored balances) and the model file path. |
@@ -40,12 +42,12 @@ One person, on their own machine, talking to an AI assistant through an MCP clie
 | R11 | An occurrence moves its amount from `from` to `to`. Leaving an asset lowers it; arriving in an asset raises it. Leaving a liability raises the amount owed (borrowing); arriving in a liability lowers it (payment). A movement into a liability is capped at the amount currently owed, and the `from` side moves by the same capped amount. Assets may go below zero. |
 | R12 | Growth is applied on the 1st of every month strictly after today and on or before the horizon end, to each account whose balance is above zero; an account at or below zero gets no growth that day. An asset's growth_rate is an effective annual rate: each month it grows by `balance x ((1 + growth_rate) ^ (1/12) - 1)`, so a balance with no flows grows by exactly growth_rate over 12 months. A liability's growth_rate is an APR: each month the amount owed rises by `balance x growth_rate / 12`. On any date, growth of all accounts is applied first, then flows in the order they were first added to the model. |
 | R13 | `project` returns: today; the horizon stated explicitly (years, first and last period label, end_date = today's date the given number of years ahead, 28 Feb when that date does not exist); the granularity; one row per period from the period containing today to the period containing the horizon end, each with its label, end_date, every account's balance and net worth; a per-account summary (kind, start_balance, end_balance, reaches_zero, growth_total); and a per-flow total moved over the horizon. A row's values are taken after all events of the earlier of the period's last day and the horizon end, so the last row does not depend on granularity. Net worth is the sum of asset balances minus the sum of liability balances. |
-| R14 | `project` takes `horizon_years`, a whole number 1 to 50 (default 5), and `granularity`, one of `monthly`, `quarterly`, `annual` (default `annual`). `monthly` is allowed only for horizons of 10 years or less; a longer monthly request is an error that suggests `quarterly` or `annual`. A model with no accounts is an error naming `set_account`. |
+| R14 | `project` takes `horizon_years`, a whole number 1 to 50 (default 5; an integral value such as 5.0 is accepted, 5.5 is refused), and `granularity`, one of `monthly`, `quarterly`, `annual` (default `annual`). `monthly` is allowed only for horizons of 10 years or less; a longer monthly request is an error that suggests `quarterly` or `annual`. A model with no accounts is an error naming `set_account`. |
 | R15 | With `in_todays_money`, every money value in the projection result is divided by `(1 + inflation_rate) ^ (days from today to its date / 365.25)`, where a row's date is its end_date, start balances are today's and the other summary values and flow totals use the horizon end; the result states the inflation rate used. |
 | R16 | Every invalid input is an MCP tool error (`isError: true`) whose message names the argument or name at fault and how to fix it, and leaves the model file unchanged. Rates are decimals; out-of-range rates are refused with a hint such as "0.07 means 7%". |
 | R17 | `show_model` and `project` never write the model file. |
 | R18 | `project` returns in under 1 second for a 30-year horizon on a model of about 50 accounts and flows. |
-| R19 | Nothing but MCP messages is written to stdout. Logs go to stderr and carry no account names, flow names or amounts above DEBUG. |
+| R19 | Nothing but MCP messages is written to stdout. Logs go to stderr and carry no account names, flow names or amounts above DEBUG. Logging is at INFO; v1 has no setting to change the level. |
 
 ## Acceptance criteria (each maps to 1+ test, in tests/test_0001_*.py)
 Fixed today in every criterion: 2026-10-06. Money is compared to the cent. "File unchanged" means
@@ -148,7 +150,7 @@ Source: the source engine (ADR 0004), its projection and recurrence code and the
   as given.
 
 ## Interfaces and data shapes
-All tools are MCP tools over stdio. Dates are `YYYY-MM-DD`. Money in results is rounded to cents;
+All tools are MCP tools over stdio. Dates are `YYYY-MM-DD`. Money in results is rounded to cents, half up;
 internal values are not rounded between steps. Errors are MCP tool results with `isError: true`
 and a text message.
 

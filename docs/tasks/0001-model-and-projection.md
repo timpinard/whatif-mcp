@@ -19,8 +19,8 @@ avoid a conflicting merge. Every AC of Spec 0001 is covered by exactly one task.
 
 ## Task notes
 - T1: `pyproject.toml` per ADR 0002 with ruff, mypy strict, pytest config and the
-  `integration` marker; `python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'` must
-  work from a clean checkout. Core: Model, Account, Flow, kind and frequency enums,
+  `integration` marker; `uv sync` must work from a clean checkout and `uv.lock` is committed
+  (ADR 0005). Core: Model, Account, Flow, kind and frequency enums,
   `WhatIfError`; occurrence generation (R9). Server: factory taking a today callable, no
   tools, stdio entry point. `tests/conftest.py`: fixed today, temp model path, in-process
   client session. One smoke integration test so the integration gate has a test to run (Plan
