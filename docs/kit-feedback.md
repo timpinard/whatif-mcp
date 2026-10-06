@@ -14,3 +14,10 @@ the retro decides (see the kit README, Process lifecycle).
 | 2026-10-06 | All | (missing) | No mapping from SDD artifacts and gates to tracker issues and transitions | Promote docs/jira.md to the kit as a tracker-neutral mapping | |
 | 2026-10-06 | All | AGENTS.md rule 7 | Tracker keys are external IDs, but every doc needs one | Allow a `Jira:` (tracker key) header line in epics, specs, plans and tasks | |
 | 2026-10-06 | Spec | _template-spec.md | No approval line, so an approved spec does not say who approved it or when | Add `- Approved by:` as in the plan template | |
+| 2026-10-06 | Plan | scripts/gates.sh | pytest exits 5 when a level has no tests, so gates cannot pass until one unit and one integration test exist | Treat exit 5 as pass for a level, or require a smoke test per level in the first task | |
+| 2026-10-06 | Plan | scripts/gates.sh, implementer.md | AC coverage is all-or-nothing per spec, so it fails on every task but the last; implementer.md says always pass the spec | Accept AC ids after the spec (`gates.sh SPEC AC1 AC4`) and check only those; full check on the last task | |
+| 2026-10-06 | Plan | references gate | Cannot name files that later tasks will create (docs/reviews/NNNN-Tn.md) | Skip paths under docs/reviews/, or refer to reviews by task ID | |
+| 2026-10-06 | Plan | _template-plan.md, _template-tasks.md | No place for spec gaps, test-file split and fixture ownership, or per-task notes and interface contracts | Add Spec gaps, Test layout and Task notes sections | |
+| 2026-10-06 | Plan | planner.md | Silent on: greenfield setup task, per-task gate command, task size limit, whether to choose implementation details (SDK style, module seams), whether to plan for later specs | State each explicitly | |
+| 2026-10-06 | Plan | _template-plan.md vs AGENTS.md rule 7 | Template header `Spec: docs/specs/...` is a path; rule 7 says refer by ID | Template: `Spec: Spec NNNN` | |
+| 2026-10-06 | Done | definition-of-done.md | Nobody is assigned to set spec Status: implemented or add the metrics row | Assign to the implementer of the spec's last task | |
