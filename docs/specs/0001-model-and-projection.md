@@ -1,5 +1,6 @@
 # Spec 0001: Model and projection
-- Status: draft
+- Status: approved
+- Approved by: Timothy Pinard, 2026-10-06
 - Owner: Timothy Pinard
 - Links: ADR 0001, ADR 0002, ADR 0003, ADR 0004 (all accepted). Foundation for Spec 0002 (what-if),
   Spec 0003 (solve-for, via Spec 0002) and Spec 0004 (bands). Implement this spec first.
