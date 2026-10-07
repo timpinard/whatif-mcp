@@ -8,7 +8,7 @@ from typing import Any
 
 from whatif_mcp.core.errors import ValidationError, WhatIfError
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
-from whatif_mcp.core.validation import check_account, finite_number
+from whatif_mcp.core.validation import check_account, check_inflation_rate, finite_number
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
@@ -155,8 +155,17 @@ def _model_from_document(document: Mapping[str, Any]) -> Model:
         flows=tuple(
             _flow_from_document(_object(entry, "flows")) for entry in _list(document, "flows")
         ),
-        inflation_rate=_number(document, "inflation_rate"),
+        inflation_rate=_inflation_rate(document),
     )
+
+
+def _inflation_rate(document: Mapping[str, Any]) -> float:
+    rate = _number(document, "inflation_rate")
+    try:
+        check_inflation_rate(rate)
+    except ValidationError as error:
+        raise _ShapeProblem(f'"inflation_rate" {error}') from error
+    return rate
 
 
 def _account_from_document(entry: Mapping[str, Any]) -> Account:

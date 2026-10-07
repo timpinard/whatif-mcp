@@ -204,3 +204,28 @@ def test_R1_load_refuses_account_breaking_an_R2_rule(
     assert '"Car loan"' in str(raised.value)
     assert expected_problem in str(raised.value)
     assert model_path.read_bytes() == original
+
+
+@pytest.mark.parametrize("inflation_rate", [-1, -1.5, 1, 3])
+def test_R1_load_refuses_inflation_rate_out_of_range(
+    model_path: Path, inflation_rate: float
+) -> None:
+    document = model_w_document()
+    document["inflation_rate"] = inflation_rate
+    original = write_text(model_path, json.dumps(document)).read_bytes()
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"inflation_rate"' in str(raised.value)
+    assert "0.03 means 3%" in str(raised.value)
+    assert model_path.read_bytes() == original
+
+
+def test_R1_load_accepts_inflation_rate_just_inside_the_range(model_path: Path) -> None:
+    document = model_w_document()
+    document["inflation_rate"] = -0.99
+    write_text(model_path, json.dumps(document))
+
+    assert load_model(model_path).inflation_rate == -0.99

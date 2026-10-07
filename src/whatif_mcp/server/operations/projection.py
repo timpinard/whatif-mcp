@@ -1,0 +1,61 @@
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from whatif_mcp.core.errors import WhatIfError
+from whatif_mcp.core.model import Model
+from whatif_mcp.core.projection import Granularity
+from whatif_mcp.server.operations.arguments import (
+    ArgumentError,
+    optional_boolean,
+    optional_choice,
+    optional_number,
+)
+
+DEFAULT_HORIZON_YEARS = 5
+DEFAULT_GRANULARITY = Granularity.ANNUAL
+MIN_HORIZON_YEARS = 1
+MAX_HORIZON_YEARS = 50
+MAX_MONTHLY_HORIZON_YEARS = 10
+
+
+class EmptyModelError(WhatIfError):
+    pass
+
+
+@dataclass(frozen=True)
+class ProjectArguments:
+    years: int
+    granularity: Granularity
+    is_todays_money: bool
+
+
+def parse_project_arguments(arguments: Mapping[str, Any]) -> ProjectArguments:
+    years = _horizon_years(arguments)
+    granularity = optional_choice(arguments, "granularity", Granularity) or DEFAULT_GRANULARITY
+    if granularity is Granularity.MONTHLY and years > MAX_MONTHLY_HORIZON_YEARS:
+        raise ArgumentError(
+            f"granularity monthly is allowed only for horizons of {MAX_MONTHLY_HORIZON_YEARS} "
+            f"years or less, and horizon_years is {years}: use quarterly or annual."
+        )
+    is_todays_money = optional_boolean(arguments, "in_todays_money") or False
+    return ProjectArguments(years, granularity, is_todays_money)
+
+
+def check_has_accounts(model: Model) -> None:
+    if not model.accounts:
+        raise EmptyModelError(
+            "The model has no accounts to project. Add one with set_account first."
+        )
+
+
+def _horizon_years(arguments: Mapping[str, Any]) -> int:
+    years = optional_number(arguments, "horizon_years")
+    if years is None:
+        return DEFAULT_HORIZON_YEARS
+    if not years.is_integer() or not MIN_HORIZON_YEARS <= years <= MAX_HORIZON_YEARS:
+        raise ArgumentError(
+            f"horizon_years {years:g} is not allowed: give a whole number of years from "
+            f"{MIN_HORIZON_YEARS} to {MAX_HORIZON_YEARS}."
+        )
+    return int(years)

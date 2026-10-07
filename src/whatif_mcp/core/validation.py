@@ -8,6 +8,8 @@ MIN_GROWTH_RATE = -1.0
 MAX_GROWTH_RATE = 1.0
 MIN_VOLATILITY = 0.0
 MAX_VOLATILITY = 1.0
+MIN_INFLATION_RATE = -1.0
+MAX_INFLATION_RATE = 1.0
 
 
 def check_account(account: Account) -> None:
@@ -25,6 +27,14 @@ def check_account(account: Account) -> None:
         raise ValidationError(
             f"volatility {account.volatility:g} is out of range: give a decimal from "
             f"{MIN_VOLATILITY:g} to {MAX_VOLATILITY:g} (0.15 means 15%)."
+        )
+
+
+def check_inflation_rate(rate: float) -> None:
+    if not MIN_INFLATION_RATE < rate < MAX_INFLATION_RATE:
+        raise ValidationError(
+            f"{rate:g} is out of range: give a decimal greater than {MIN_INFLATION_RATE:g} and "
+            f"less than {MAX_INFLATION_RATE:g} (0.03 means 3%)"
         )
 
 
