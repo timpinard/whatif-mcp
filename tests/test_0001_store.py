@@ -177,3 +177,30 @@ def test_R1_load_refuses_flow_without_amount_or_complete_rate(
     assert str(model_path) in str(raised.value)
     assert '"Salary"' in str(raised.value)
     assert expected_problem in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("account_fields", "expected_problem"),
+    [
+        ({"balance": -1.0}, "balance"),
+        ({"growth_rate": 7.0}, "growth_rate"),
+        ({"growth_rate": -1.0}, "growth_rate"),
+        ({"growth_rate": 1.5}, "growth_rate"),
+        ({"volatility": -0.1}, "volatility"),
+        ({"volatility": 1.5}, "volatility"),
+    ],
+)
+def test_R1_load_refuses_account_breaking_an_R2_rule(
+    model_path: Path, account_fields: dict[str, Any], expected_problem: str
+) -> None:
+    document = model_w_document()
+    document["accounts"][1].update(account_fields)
+    original = write_text(model_path, json.dumps(document)).read_bytes()
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"Car loan"' in str(raised.value)
+    assert expected_problem in str(raised.value)
+    assert model_path.read_bytes() == original

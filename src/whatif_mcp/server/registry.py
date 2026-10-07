@@ -36,6 +36,10 @@ class UnknownToolError(WhatIfError):
     pass
 
 
+class UnknownArgumentError(WhatIfError):
+    pass
+
+
 def create_registry_server(
     name: str, tools: Sequence[RegisteredTool], today: Callable[[], date]
 ) -> Server[Any]:
@@ -58,7 +62,9 @@ def call_tool(
     tools_by_name: Mapping[str, RegisteredTool], tool_name: str, call: ToolCall
 ) -> types.CallToolResult:
     try:
-        result = _find_tool(tools_by_name, tool_name).handler(call)
+        tool = _find_tool(tools_by_name, tool_name)
+        _check_argument_names(tool.definition, call.arguments)
+        result = tool.handler(call)
     except WhatIfError as error:
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=str(error))], is_error=True
@@ -75,3 +81,13 @@ def _find_tool(tools_by_name: Mapping[str, RegisteredTool], tool_name: str) -> R
             f"There is no tool named {tool_name}. Tools: {', '.join(tools_by_name)}."
         )
     return tools_by_name[tool_name]
+
+
+def _check_argument_names(definition: types.Tool, arguments: Mapping[str, Any]) -> None:
+    known = list(definition.input_schema.get("properties", {}))
+    unknown = [argument for argument in arguments if argument not in known]
+    if unknown:
+        raise UnknownArgumentError(
+            f"{', '.join(unknown)} is not an argument of {definition.name}. "
+            f"Arguments: {', '.join(known) or 'none'}."
+        )
