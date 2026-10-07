@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import tempfile
 from collections.abc import Callable, Mapping
@@ -38,16 +39,13 @@ def load_model(path: Path) -> Model:
         raise ModelFileError(f"The model file {path} is not valid JSON: {error}.") from error
     if not isinstance(document, dict):
         raise _shape_error(path, "the top level is not an object")
-    version = document.get("version")
-    if version != FILE_VERSION:
-        raise ModelFileError(
-            f"The model file {path} has version {version}; this server reads version "
-            f"{FILE_VERSION} only."
-        )
+    _check_version(path, document)
     try:
-        return _model_from_document(document)
+        model = _model_from_document(document)
+        _check_names(model)
     except _ShapeProblem as problem:
         raise _shape_error(path, str(problem)) from problem
+    return model
 
 
 def save_model(path: Path, model: Model) -> None:
@@ -57,6 +55,8 @@ def save_model(path: Path, model: Model) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as temp_file:
             temp_file.write(content)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
         os.chmod(temp_name, FILE_MODE)
         os.replace(temp_name, path)
     except BaseException:
@@ -69,7 +69,47 @@ class _ShapeProblem(Exception):
 
 
 def _shape_error(path: Path, problem: str) -> ModelFileError:
-    return ModelFileError(f"The model file {path} does not match the version 1 shape: {problem}.")
+    return ModelFileError(
+        f"The model file {path} does not match the version {FILE_VERSION} shape: {problem}."
+    )
+
+
+def _check_version(path: Path, document: Mapping[str, Any]) -> None:
+    if "version" not in document:
+        raise ModelFileError(
+            f"The model file {path} has no version; this server reads version {FILE_VERSION}."
+        )
+    version = document["version"]
+    if type(version) is not int or version != FILE_VERSION:
+        raise ModelFileError(
+            f"The model file {path} has version {json.dumps(version)}; this server reads "
+            f"version {FILE_VERSION} only."
+        )
+
+
+def _check_names(model: Model) -> None:
+    _check_unique("account", [account.name for account in model.accounts])
+    _check_unique("flow", [flow.name for flow in model.flows])
+    account_names = {account.name for account in model.accounts}
+    for flow in model.flows:
+        for key, account_name in (
+            ("from", flow.from_account),
+            ("to", flow.to_account),
+            ("rate_of", flow.rate_of),
+        ):
+            if account_name is not None and account_name not in account_names:
+                raise _ShapeProblem(
+                    f'flow "{flow.name}" has "{key}" "{account_name}", which is not an account'
+                )
+
+
+def _check_unique(kind: str, names: list[str]) -> None:
+    seen: set[str] = set()
+    for name in names:
+        matching_key = name.strip().casefold()
+        if matching_key in seen:
+            raise _ShapeProblem(f'{kind} name "{name}" is used more than once')
+        seen.add(matching_key)
 
 
 def _document_from_model(model: Model) -> dict[str, Any]:
@@ -167,6 +207,8 @@ def _number(entry: Mapping[str, Any], key: str) -> float:
     value = _field(entry, key)
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise _ShapeProblem(f'"{key}" is not a number')
+    if not math.isfinite(value):
+        raise _ShapeProblem(f'"{key}" is {json.dumps(value)}, not a finite number')
     return float(value)
 
 
