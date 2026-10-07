@@ -14,6 +14,10 @@ async def _serve() -> None:
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
-def main() -> None:
+def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+
+
+def main() -> None:
+    configure_logging()
     asyncio.run(_serve())

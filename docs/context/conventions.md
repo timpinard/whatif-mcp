@@ -32,7 +32,7 @@ prose, anti-pattern list). This file adds what is specific to this repo.
   in-process client session (integration). Each plan names the seam per AC.
 - Unit: core and store, called directly. Fixed "today" in every test.
 - Integration (`@pytest.mark.integration`): the server driven through an in-process MCP client
-  session, against a model file in a temp directory.
+  session, or run as a subprocess over stdio, against a model file in a temp directory.
 - Expected numbers are hand-checked and the arithmetic is shown in a one-line comment or the AC.
 
 ## Logging and observability

@@ -34,7 +34,7 @@ python_version = "3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers"
-markers = ["integration: drives the server through an in-process MCP client session"]
+markers = ["integration: drives the server through an in-process MCP client session or as a subprocess over stdio"]
 
 [dependency-groups]
 dev = [
