@@ -114,6 +114,59 @@ async def test_AC8_set_flow_creates_updates_and_renames(client: Client, model_w_
     assert model_w_file.read_bytes() == file_bytes
 
 
+MONTHLY_FROM_CHECKING = {"name": "X", "from": "Checking", "frequency": "monthly"}
+FIXED_FROM_CHECKING = {**MONTHLY_FROM_CHECKING, "amount": 50}
+RATE_FROM_CHECKING = {**MONTHLY_FROM_CHECKING, "rate": 0.1, "rate_of": "Savings"}
+ACCOUNT_NAMES = "Checking, Savings, Car loan"
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("arguments", "argument_at_fault", "also_contains"),
+    [
+        ({"name": "X", "amount": 50, "frequency": "monthly"}, "from", ["to"]),
+        ({**FIXED_FROM_CHECKING, "to": "checking"}, "to", []),
+        ({**FIXED_FROM_CHECKING, "rate": 0.1, "rate_of": "Savings"}, "amount", ["rate"]),
+        (MONTHLY_FROM_CHECKING, "amount", ["rate"]),
+        ({**MONTHLY_FROM_CHECKING, "rate": 0.1}, "rate_of", []),
+        ({**FIXED_FROM_CHECKING, "amount": 0}, "amount", []),
+        ({**FIXED_FROM_CHECKING, "amount": "lots"}, "amount", []),
+        ({**RATE_FROM_CHECKING, "rate": 0}, "rate", []),
+        ({**RATE_FROM_CHECKING, "rate": 1.5}, "rate", ["decimal"]),
+        (
+            {**FIXED_FROM_CHECKING, "start_date": "2026-11-01", "end_date": "2026-10-31"},
+            "end_date",
+            ["start_date"],
+        ),
+        ({**FIXED_FROM_CHECKING, "frequency": "daily"}, "frequency", ["monthly", "one_time"]),
+        ({**FIXED_FROM_CHECKING, "start_date": "10/1/2026"}, "start_date", ["YYYY-MM-DD"]),
+        (
+            {**FIXED_FROM_CHECKING, "frequency": "one_time", "start_date": "2026-10-06"},
+            "start_date",
+            ["never fire"],
+        ),
+        ({**FIXED_FROM_CHECKING, "to": "Marina"}, "to", ['"Marina"', ACCOUNT_NAMES]),
+        ({**RATE_FROM_CHECKING, "rate_of": "Marina"}, "rate_of", ['"Marina"', ACCOUNT_NAMES]),
+    ],
+)
+async def test_AC9_set_flow_validation(
+    client: Client,
+    model_w_file: Path,
+    arguments: dict[str, Any],
+    argument_at_fault: str,
+    also_contains: list[str],
+) -> None:
+    file_bytes = model_w_file.read_bytes()
+
+    message = await fail(client, "set_flow", arguments)
+
+    assert message.split()[0].rstrip(":") == argument_at_fault
+    for expected in also_contains:
+        assert expected in message
+    assert model_w_file.read_bytes() == file_bytes
+
+
 @pytest.mark.anyio
 @pytest.mark.integration
 async def test_AC10_remove_flow_and_exact_case_insensitive_names(
