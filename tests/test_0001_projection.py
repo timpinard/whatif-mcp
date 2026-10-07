@@ -3,7 +3,13 @@ from datetime import date
 import pytest
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
-from whatif_mcp.core.projection import Granularity, Projection, horizon_end_date, project
+from whatif_mcp.core.projection import (
+    AccountSummary,
+    Granularity,
+    Projection,
+    horizon_end_date,
+    project,
+)
 
 CENT = 0.005
 
@@ -95,3 +101,40 @@ def test_AC14_occurrences_that_take_effect(today: date) -> None:
         "Kitchen": cents(1000.00),
         "Bonus": cents(0.00),
     }
+
+
+def summary_of(projection: Projection, account: str) -> AccountSummary:
+    return next(summary for summary in projection.accounts if summary.name == account)
+
+
+def test_AC16_borrowing_and_payment_capped_at_amount_owed(today: date) -> None:
+    model = Model(
+        accounts=(asset("Checking", 1000), liability("Loan", 0)),
+        flows=(
+            fixed_flow(
+                "Borrow",
+                300,
+                Frequency.ONE_TIME,
+                date(2026, 11, 1),
+                source="Loan",
+                target="Checking",
+            ),
+            fixed_flow(
+                "Pay", 500, Frequency.MONTHLY, date(2026, 12, 1), source="Checking", target="Loan"
+            ),
+        ),
+    )
+
+    projection = project_years(model, today, 1, Granularity.MONTHLY)
+
+    november = next(row for row in projection.periods if row.label == "2026-11")
+    assert november.balances["Loan"] == cents(300.00)
+    assert november.balances["Checking"] == cents(1300.00)
+    assert november.net_worth == cents(1000.00)
+    later_rows = [row for row in projection.periods if row.end_date >= date(2026, 12, 31)]
+    assert len(later_rows) == 11
+    for row in later_rows:
+        assert row.balances["Loan"] == cents(0.00)
+        assert row.balances["Checking"] == cents(1000.00)
+    assert flow_totals(projection)["Pay"] == cents(300.00)
+    assert summary_of(projection, "Loan").reaches_zero == date(2026, 12, 1)

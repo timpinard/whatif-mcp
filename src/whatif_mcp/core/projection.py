@@ -26,6 +26,16 @@ class PeriodRow:
 
 
 @dataclass(frozen=True)
+class AccountSummary:
+    name: str
+    kind: AccountKind
+    start_balance: float
+    end_balance: float
+    reaches_zero: date | None
+    growth_total: float
+
+
+@dataclass(frozen=True)
 class FlowTotal:
     name: str
     total: float
@@ -37,6 +47,7 @@ class Projection:
     horizon_end: date
     granularity: Granularity
     periods: tuple[PeriodRow, ...]
+    accounts: tuple[AccountSummary, ...]
     flows: tuple[FlowTotal, ...]
 
 
@@ -51,8 +62,19 @@ def project(model: Model, today: date, horizon_end: date, granularity: Granulari
     for label, period_end in _periods(today, horizon_end, granularity):
         simulation.run_through(period_end)
         periods.append(simulation.row(label, period_end))
+    accounts = tuple(
+        AccountSummary(
+            account.name,
+            account.kind,
+            account.balance,
+            simulation.balances[account.name],
+            simulation.reaches_zero.get(account.name),
+            simulation.growth_totals[account.name],
+        )
+        for account in model.accounts
+    )
     flows = tuple(FlowTotal(flow.name, simulation.flow_totals[flow.name]) for flow in model.flows)
-    return Projection(today, horizon_end, granularity, tuple(periods), flows)
+    return Projection(today, horizon_end, granularity, tuple(periods), accounts, flows)
 
 
 class _Simulation:
@@ -61,6 +83,8 @@ class _Simulation:
         self._kinds = {account.name: account.kind for account in model.accounts}
         self.balances = {account.name: account.balance for account in model.accounts}
         self.flow_totals = {flow.name: 0.0 for flow in model.flows}
+        self.growth_totals = {account.name: 0.0 for account in model.accounts}
+        self.reaches_zero: dict[str, date] = {}
         self._events = _scheduled_flows(model, today, horizon_end)
         self._event_dates = sorted(self._events)
         self._next_event = 0
@@ -70,8 +94,11 @@ class _Simulation:
             self._next_event < len(self._event_dates)
             and self._event_dates[self._next_event] <= last_day
         ):
-            for flow in self._events[self._event_dates[self._next_event]]:
+            event_date = self._event_dates[self._next_event]
+            balances_before = dict(self.balances)
+            for flow in self._events[event_date]:
                 self._apply(flow)
+            self._record_reaches_zero(event_date, balances_before)
             self._next_event += 1
 
     def row(self, label: str, end_date: date) -> PeriodRow:
@@ -83,11 +110,24 @@ class _Simulation:
 
     def _apply(self, flow: Flow) -> None:
         amount = flow.amount or 0.0
+        if flow.to_account is not None and self._kinds[flow.to_account] is AccountKind.LIABILITY:
+            amount = max(0.0, min(amount, self.balances[flow.to_account]))
         if flow.from_account is not None:
-            self.balances[flow.from_account] -= amount
+            self._move(flow.from_account, -amount)
         if flow.to_account is not None:
-            self.balances[flow.to_account] += amount
+            self._move(flow.to_account, amount)
         self.flow_totals[flow.name] += amount
+
+    def _move(self, account: str, inflow: float) -> None:
+        if self._kinds[account] is AccountKind.ASSET:
+            self.balances[account] += inflow
+        else:
+            self.balances[account] -= inflow
+
+    def _record_reaches_zero(self, event_date: date, balances_before: Mapping[str, float]) -> None:
+        for name, balance in self.balances.items():
+            if name not in self.reaches_zero and balances_before[name] > 0 and balance <= 0:
+                self.reaches_zero[name] = event_date
 
 
 def _scheduled_flows(model: Model, today: date, horizon_end: date) -> dict[date, list[Flow]]:
