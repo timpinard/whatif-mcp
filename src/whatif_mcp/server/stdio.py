@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import sys
 from datetime import date
 
 from mcp.server.stdio import stdio_server
@@ -13,4 +15,5 @@ async def _serve() -> None:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     asyncio.run(_serve())
