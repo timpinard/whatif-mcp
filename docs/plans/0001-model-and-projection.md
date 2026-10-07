@@ -97,8 +97,9 @@ order is the order flows were first added.
   10562.51). Internal values are never rounded between steps; rounding only in shaping.
 - Whether the SDK's own loggers emit tool arguments at INFO (R19) is unknown until T7.
 - Review-only checks (no seam observes them): the stdio entry point passes the clock, not a
-  fixed date; every write tool loads through the same guarded path as `set_account`, so an
-  unreadable file is never overwritten.
+  fixed date, and `main()` calls `configure_logging()` (added at the Task 0001-T7 merge gate);
+  every write tool loads through the same guarded path as `set_account`, so an unreadable file is
+  never overwritten.
 - T2 and T3 both add builders to `tests/conftest.py`; the second to merge rebases it.
 
 ## Spec gaps (flagged for the owner; working assumption in brackets; resolved by amending the spec)
