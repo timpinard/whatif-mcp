@@ -4,13 +4,24 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from whatif_mcp.core.model import Account, AccountKind, Flow, Model
+from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 from whatif_mcp.core.recurrence import occurrence_dates
 
 MONTHS_PER_QUARTER = 3
 MONTHS_PER_YEAR = 12
 LAST_MONTH = 12
 GROWTH_DAY = 1
+
+OCCURRENCES_PER_YEAR = {
+    Frequency.WEEKLY: 52,
+    Frequency.BIWEEKLY: 26,
+    Frequency.SEMIMONTHLY: 24,
+    Frequency.MONTHLY: 12,
+    Frequency.QUARTERLY: 4,
+    Frequency.SEMIANNUAL: 2,
+    Frequency.ANNUAL: 1,
+    Frequency.ONE_TIME: 1,
+}
 
 
 class Granularity(StrEnum):
@@ -127,7 +138,7 @@ class _Simulation:
             self.growth_totals[account.name] += growth
 
     def _apply(self, flow: Flow) -> None:
-        amount = flow.amount or 0.0
+        amount = self._occurrence_amount(flow)
         if flow.to_account is not None and self._kinds[flow.to_account] is AccountKind.LIABILITY:
             amount = max(0.0, min(amount, self.balances[flow.to_account]))
         if flow.from_account is not None:
@@ -135,6 +146,13 @@ class _Simulation:
         if flow.to_account is not None:
             self._move(flow.to_account, amount)
         self.flow_totals[flow.name] += amount
+
+    def _occurrence_amount(self, flow: Flow) -> float:
+        if flow.amount is not None:
+            return flow.amount
+        assert flow.rate is not None and flow.rate_of is not None
+        base = max(0.0, self.balances[flow.rate_of])
+        return flow.rate * base / OCCURRENCES_PER_YEAR[flow.frequency]
 
     def _move(self, account: str, inflow: float) -> None:
         if self._kinds[account] is AccountKind.ASSET:

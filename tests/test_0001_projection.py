@@ -182,3 +182,28 @@ def test_AC18_liability_interest_is_apr_monthly_before_flows(today: date, model_
     assert summary_of(cards_projection, "Card").end_balance == cents(1352.19)  # 1200 x 1.01^12
     assert summary_of(cards_projection, "Paid off").end_balance == cents(0.00)
     assert summary_of(cards_projection, "Paid off").growth_total == cents(0.00)
+
+
+def test_AC15_rate_flow_uses_balance_at_occurrence(today: date) -> None:
+    def drawdown_model(brokerage: float, frequency: Frequency, rate: float, start: date) -> Model:
+        drawdown = rate_flow(
+            "Drawdown", rate, "Brokerage", frequency, start, source="Brokerage", target="Checking"
+        )
+        return Model(
+            accounts=(asset("Brokerage", brokerage), asset("Checking", 0)), flows=(drawdown,)
+        )
+
+    annual = drawdown_model(100000, Frequency.ANNUAL, 0.04, date(2027, 1, 1))
+    assert summary_of(project_years(annual, today, 1), "Checking").end_balance == cents(4000.00)
+
+    monthly = drawdown_model(100000, Frequency.MONTHLY, 0.12, date(2026, 11, 1))
+    projection = project_years(monthly, today, 1, Granularity.MONTHLY)
+    assert balance_at(projection, "2026-11", "Checking") == cents(1000.00)  # 100000 x 0.12 / 12
+    assert balance_at(projection, "2026-12", "Checking") == cents(1990.00)  # + 99000 x 0.01
+
+    negative = drawdown_model(-50, Frequency.MONTHLY, 0.12, date(2026, 11, 1))
+    negative_projection = project_years(negative, today, 1, Granularity.MONTHLY)
+    assert flow_totals(negative_projection)["Drawdown"] == cents(0.00)
+    for row in negative_projection.periods:
+        assert row.balances["Brokerage"] == cents(-50.00)
+        assert row.balances["Checking"] == cents(0.00)
