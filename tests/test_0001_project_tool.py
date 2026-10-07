@@ -7,30 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import fail, succeed
 from mcp import Client
-from mcp.types import CallToolResult, TextContent
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 from whatif_mcp.server import create_server
-
-
-async def succeed(client: Client, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    result = await client.call_tool(tool, arguments)
-    assert not result.is_error, error_text(result)
-    assert result.structured_content is not None
-    return result.structured_content
-
-
-async def fail(client: Client, tool: str, arguments: dict[str, Any]) -> str:
-    result = await client.call_tool(tool, arguments)
-    assert result.is_error, result.structured_content
-    return error_text(result)
-
-
-def error_text(result: CallToolResult) -> str:
-    content = result.content[0]
-    assert isinstance(content, TextContent)
-    return content.text
 
 
 def period_labels(projection: dict[str, Any]) -> list[str]:
@@ -129,16 +110,16 @@ async def test_AC23_project_in_todays_money(
     write_model_file(Model(accounts=(Account("Checking", AccountKind.ASSET, 1000.0, today),)))
     one_year = {"horizon_years": 1, "granularity": "annual"}
 
-    real = await succeed(client, "project", {**one_year, "in_todays_money": True})
+    todays_money = await succeed(client, "project", {**one_year, "in_todays_money": True})
     nominal = await succeed(client, "project", one_year)
 
     # 1000 / 1.03^(86/365.25) = 993.06; 1000 / 1.03^(365/365.25) = 970.89
-    assert row_balances(real, "Checking") == [993.06, 970.89]
-    assert [row["net_worth"] for row in real["periods"]] == [993.06, 970.89]
-    assert real["accounts"][0]["start_balance"] == 1000.00
-    assert real["accounts"][0]["end_balance"] == 970.89
-    assert real["values"] == "todays_money"
-    assert real["inflation_rate"] == 0.03
+    assert row_balances(todays_money, "Checking") == [993.06, 970.89]
+    assert [row["net_worth"] for row in todays_money["periods"]] == [993.06, 970.89]
+    assert todays_money["accounts"][0]["start_balance"] == 1000.00
+    assert todays_money["accounts"][0]["end_balance"] == 970.89
+    assert todays_money["values"] == "todays_money"
+    assert todays_money["inflation_rate"] == 0.03
     assert row_balances(nominal, "Checking") == [1000.00, 1000.00]
     assert nominal["values"] == "nominal"
     assert "inflation_rate" not in nominal
@@ -173,11 +154,11 @@ async def test_AC23_set_inflation_rate(
 
     await succeed(client, "set_inflation_rate", {"rate": 0})
     one_year = {"horizon_years": 1, "granularity": "annual"}
-    real = await succeed(client, "project", {**one_year, "in_todays_money": True})
+    todays_money = await succeed(client, "project", {**one_year, "in_todays_money": True})
     nominal = await succeed(client, "project", one_year)
 
-    assert real["periods"] == nominal["periods"]
-    assert real["inflation_rate"] == 0
+    assert todays_money["periods"] == nominal["periods"]
+    assert todays_money["inflation_rate"] == 0
 
 
 @pytest.mark.anyio
@@ -315,8 +296,23 @@ async def test_R15_flow_totals_deflate_at_the_horizon_end(
         Model(accounts=(Account("Checking", AccountKind.ASSET, 0.0, today),), flows=(gift,))
     )
 
-    real = await succeed(client, "project", {"horizon_years": 1, "in_todays_money": True})
+    todays_money = await succeed(client, "project", {"horizon_years": 1, "in_todays_money": True})
 
     # 100 / 1.03^(365/365.25) = 97.09, not 100 / 1.03^(26/365.25) = 99.79 at the gift's date
-    assert real["flows"] == [{"name": "Gift", "total": 97.09}]
-    assert real["accounts"][0]["end_balance"] == 97.09
+    assert todays_money["flows"] == [{"name": "Gift", "total": 97.09}]
+    assert todays_money["accounts"][0]["end_balance"] == 97.09
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R15_growth_total_deflates_at_the_horizon_end(
+    client: Client, write_model_file: Callable[[Model], Path], today: date
+) -> None:
+    write_model_file(
+        Model(accounts=(Account("Savings", AccountKind.ASSET, 1000.0, today, growth_rate=0.07),))
+    )
+
+    todays_money = await succeed(client, "project", {"horizon_years": 1, "in_todays_money": True})
+
+    # nominal growth 1000 x 0.07 = 70.00 (AC17); 70 / 1.03^(365/365.25) = 67.96
+    assert todays_money["accounts"][0]["growth_total"] == 67.96

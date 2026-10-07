@@ -1,29 +1,24 @@
-from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
 from mcp import types
 
-from whatif_mcp.core.model import Model
 from whatif_mcp.core.projection import Granularity, Projection, horizon_end_date, project
 from whatif_mcp.core.todays_money import in_todays_money
 from whatif_mcp.server.operations import inflation as operations
-from whatif_mcp.server.operations.arguments import (
-    ArgumentError,
-    optional_boolean,
-    optional_choice,
-    optional_number,
+from whatif_mcp.server.operations.projection import (
+    DEFAULT_GRANULARITY,
+    DEFAULT_HORIZON_YEARS,
+    MAX_HORIZON_YEARS,
+    MAX_MONTHLY_HORIZON_YEARS,
+    MIN_HORIZON_YEARS,
+    check_has_accounts,
+    parse_project_arguments,
 )
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
 from whatif_mcp.server.shaping import round_money
 from whatif_mcp.server.tools.writing import write_model_file
 from whatif_mcp.store import load_model, resolve_model_path
 
-DEFAULT_HORIZON_YEARS = 5
-DEFAULT_GRANULARITY = Granularity.ANNUAL
-MIN_HORIZON_YEARS = 1
-MAX_HORIZON_YEARS = 50
-MAX_MONTHLY_HORIZON_YEARS = 10
 NOMINAL = "nominal"
 TODAYS_MONEY = "todays_money"
 
@@ -70,17 +65,10 @@ SET_INFLATION_RATE_SCHEMA: dict[str, Any] = {
 }
 
 
-@dataclass(frozen=True)
-class _ProjectArguments:
-    years: int
-    granularity: Granularity
-    is_todays_money: bool
-
-
 def project_model(call: ToolCall) -> dict[str, Any]:
-    given = _parse(call.arguments)
+    given = parse_project_arguments(call.arguments)
     model = load_model(resolve_model_path())
-    _check_has_accounts(model)
+    check_has_accounts(model)
     horizon_end = horizon_end_date(call.today, given.years)
     projection = project(model, call.today, horizon_end, given.granularity)
     if not given.is_todays_money:
@@ -95,35 +83,6 @@ def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
     changed = operations.set_inflation_rate(model, call.arguments)
     write_model_file(path, changed)
     return {"inflation_rate": changed.inflation_rate, "previous": model.inflation_rate}
-
-
-def _parse(arguments: Mapping[str, Any]) -> _ProjectArguments:
-    years = _horizon_years(arguments)
-    granularity = optional_choice(arguments, "granularity", Granularity) or DEFAULT_GRANULARITY
-    if granularity is Granularity.MONTHLY and years > MAX_MONTHLY_HORIZON_YEARS:
-        raise ArgumentError(
-            f"granularity monthly is allowed only for horizons of {MAX_MONTHLY_HORIZON_YEARS} "
-            f"years or less, and horizon_years is {years}: use quarterly or annual."
-        )
-    is_todays_money = optional_boolean(arguments, "in_todays_money") or False
-    return _ProjectArguments(years, granularity, is_todays_money)
-
-
-def _horizon_years(arguments: Mapping[str, Any]) -> int:
-    years = optional_number(arguments, "horizon_years")
-    if years is None:
-        return DEFAULT_HORIZON_YEARS
-    if not years.is_integer() or not MIN_HORIZON_YEARS <= years <= MAX_HORIZON_YEARS:
-        raise ArgumentError(
-            f"horizon_years {years:g} is not allowed: give a whole number of years from "
-            f"{MIN_HORIZON_YEARS} to {MAX_HORIZON_YEARS}."
-        )
-    return int(years)
-
-
-def _check_has_accounts(model: Model) -> None:
-    if not model.accounts:
-        raise ArgumentError("The model has no accounts to project. Add one with set_account first.")
 
 
 def _shape_projection(projection: Projection, years: int, values: dict[str, Any]) -> dict[str, Any]:
