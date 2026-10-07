@@ -1,9 +1,14 @@
+from collections.abc import Callable
+from dataclasses import replace
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
 from helpers import fail, succeed
 from mcp import Client
+
+from whatif_mcp.core.model import Flow, Frequency, Model
 
 
 async def shown_flows(client: Client) -> list[dict[str, Any]]:
@@ -189,3 +194,80 @@ async def test_AC10_remove_flow_and_exact_case_insensitive_names(
 
     assert "Salary" in message
     assert "Car payment" not in message.split("names:")[1]
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R4_rate_of_alone_retargets_a_rate_flow_and_is_refused_on_a_fixed_flow(
+    client: Client, model_w_file: Path
+) -> None:
+    await succeed(
+        client,
+        "set_flow",
+        {
+            "name": "Sweep",
+            "from": "Checking",
+            "rate": 0.12,
+            "rate_of": "Checking",
+            "frequency": "monthly",
+        },
+    )
+
+    retargeted = await succeed(client, "set_flow", {"name": "Sweep", "rate_of": "car LOAN"})
+
+    assert (retargeted["flow"]["rate"], retargeted["flow"]["rate_of"]) == (0.12, "Car loan")
+    assert retargeted["previous"] == {"rate_of": "Checking"}
+
+    file_bytes = model_w_file.read_bytes()
+    message = await fail(client, "set_flow", {"name": "Salary", "rate_of": "Checking"})
+
+    assert message.split()[0] == "rate"
+    assert model_w_file.read_bytes() == file_bytes
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R4_rate_and_rate_of_make_a_fixed_flow_a_rate_flow(
+    client: Client, model_w_file: Path
+) -> None:
+    changed = await succeed(
+        client, "set_flow", {"name": "Car payment", "rate": 0.05, "rate_of": "Car loan"}
+    )
+
+    assert (changed["flow"]["amount"], changed["flow"]["rate"]) == (None, 0.05)
+    assert changed["previous"] == {"amount": 500.00, "rate": None, "rate_of": None}
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R4_previous_names_from_and_to_as_the_tool_does(
+    client: Client, model_w_file: Path
+) -> None:
+    changed = await succeed(
+        client, "set_flow", {"name": "Car payment", "from": None, "to": "Savings"}
+    )
+
+    assert changed["previous"] == {"from": "Checking", "to": "Car loan"}
+    assert (changed["flow"]["from"], changed["flow"]["to"]) == (None, "Savings")
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R4_never_fires_check_only_when_start_date_or_frequency_given(
+    client: Client, write_model_file: Callable[[Model], Path], model_w: Model, today: date
+) -> None:
+    passed = Flow(
+        "Deposit", None, "Checking", 100.0, None, None, Frequency.ONE_TIME, date(2026, 9, 1)
+    )
+    path = write_model_file(replace(model_w, flows=(*model_w.flows, passed)))
+
+    changed = await succeed(client, "set_flow", {"name": "Deposit", "amount": 200})
+
+    assert changed["flow"]["amount"] == 200.00
+
+    file_bytes = path.read_bytes()
+    message = await fail(client, "set_flow", {"name": "Deposit", "start_date": today.isoformat()})
+
+    assert message.split()[0] == "start_date"
+    assert "never fire" in message
+    assert path.read_bytes() == file_bytes
