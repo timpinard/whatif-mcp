@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
+from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model, rate_terms
 from whatif_mcp.core.recurrence import occurrence_dates
-from whatif_mcp.core.validation import rate_terms
 
 MONTHS_PER_QUARTER = 3
 MONTHS_PER_YEAR = 12
@@ -106,6 +105,9 @@ class Simulation:
         self._kinds = {account.name: account.kind for account in model.accounts}
         self.balances = {account.name: account.balance for account in model.accounts}
         self.flow_totals = {flow.name: 0.0 for flow in model.flows}
+        self._rate_terms = {
+            flow.name: rate_terms(flow) for flow in model.flows if flow.amount is None
+        }
         self.growth_totals = {account.name: 0.0 for account in model.accounts}
         self.reaches_zero: dict[str, date] = {}
         self._events = _scheduled_flows(model, today, horizon_end)
@@ -152,7 +154,7 @@ class Simulation:
     def _occurrence_amount(self, flow: Flow) -> float:
         if flow.amount is not None:
             return flow.amount
-        rate, rate_of = rate_terms(flow)
+        rate, rate_of = self._rate_terms[flow.name]
         base = max(0.0, self.balances[rate_of])
         return rate * base / OCCURRENCES_PER_YEAR[flow.frequency]
 

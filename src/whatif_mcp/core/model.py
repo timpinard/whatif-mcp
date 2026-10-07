@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
+from whatif_mcp.core.errors import ValidationError
+
 DEFAULT_INFLATION_RATE = 0.03
 
 
@@ -49,3 +51,9 @@ class Model:
     accounts: tuple[Account, ...] = ()
     flows: tuple[Flow, ...] = ()
     inflation_rate: float = DEFAULT_INFLATION_RATE
+
+
+def rate_terms(flow: Flow) -> tuple[float, str]:
+    if flow.rate is None or flow.rate_of is None:
+        raise ValidationError(f'flow "{flow.name}" is not a rate flow: it has no rate and rate_of.')
+    return flow.rate, flow.rate_of

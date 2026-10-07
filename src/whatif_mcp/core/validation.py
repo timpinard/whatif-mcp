@@ -51,7 +51,7 @@ def check_flow(flow: Flow) -> None:
     if flow.rate_of is not None and flow.rate is None:
         raise ValidationError("rate is required with rate_of: give the rate as a decimal.")
     if flow.amount is None:
-        rate_terms(flow)
+        _check_rate(flow)
     elif flow.amount <= 0:
         raise ValidationError(
             f"amount {flow.amount:g} is not above 0: give the amount moved each time as a "
@@ -64,7 +64,7 @@ def check_flow(flow: Flow) -> None:
         )
 
 
-def rate_terms(flow: Flow) -> tuple[float, str]:
+def _check_rate(flow: Flow) -> None:
     if flow.rate is None:
         raise ValidationError(
             "amount or rate is required: give a fixed amount, or a rate with rate_of."
@@ -78,7 +78,6 @@ def rate_terms(flow: Flow) -> tuple[float, str]:
             f"rate {flow.rate:g} is out of range: give a decimal above 0 and at most "
             f"{MAX_FLOW_RATE:g} (0.04 means 4% a year)."
         )
-    return flow.rate, flow.rate_of
 
 
 def check_fires(flow: Flow, today: date) -> None:
