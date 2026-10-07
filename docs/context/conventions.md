@@ -26,6 +26,8 @@ prose, anti-pattern list). This file adds what is specific to this repo.
 - An ambiguous or unknown name is an error listing the candidates; never guess.
 
 ## Testing (naming: test_<AC-id>_<behavior> in tests/test_<spec-NNNN>_*.py)
+- Behavior a requirement states and no AC covers: `test_R<n>_<behavior>` (owner ruling, Task
+  0001-T3 review).
 - Seams: core functions (unit), the store against a temp file (unit), MCP tools through an
   in-process client session (integration). Each plan names the seam per AC.
 - Unit: core and store, called directly. Fixed "today" in every test.
