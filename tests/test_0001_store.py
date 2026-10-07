@@ -185,6 +185,8 @@ def test_R1_load_refuses_flow_without_amount_or_complete_rate(
         ({"balance": -1.0}, "balance"),
         ({"growth_rate": 7.0}, "growth_rate"),
         ({"growth_rate": -1.0}, "growth_rate"),
+        ({"growth_rate": 1.5}, "growth_rate"),
+        ({"volatility": -0.1}, "volatility"),
         ({"volatility": 1.5}, "volatility"),
     ],
 )

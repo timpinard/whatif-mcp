@@ -1,7 +1,9 @@
+from dataclasses import fields
 from typing import Any
 
 from mcp import types
 
+from whatif_mcp.core.model import Account, AccountKind
 from whatif_mcp.server.operations import accounts as operations
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
 from whatif_mcp.server.shaping import shape_account
@@ -21,7 +23,7 @@ SET_ACCOUNT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "name": NAME_PROPERTY,
-        "kind": {"type": "string", "enum": ["asset", "liability"]},
+        "kind": {"type": "string", "enum": [kind.value for kind in AccountKind]},
         "balance": {"type": "number", "description": "Balance today; for a liability, owed."},
         "growth_rate": {
             "type": "number",
@@ -49,7 +51,11 @@ def set_account(call: ToolCall) -> dict[str, Any]:
     if edit.previous is None:
         return {"created": True, "account": account}
     earlier = shape_account(edit.previous)
-    previous = {key: value for key, value in earlier.items() if account[key] != value}
+    previous = {
+        field.name: earlier[field.name]
+        for field in fields(Account)
+        if getattr(edit.previous, field.name) != getattr(edit.account, field.name)
+    }
     return {"created": False, "account": account, "previous": previous}
 
 

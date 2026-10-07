@@ -145,7 +145,7 @@ async def test_AC6_set_account_validation(
 
     message = await fail(client, "set_account", arguments)
 
-    assert argument_at_fault in message
+    assert message.split()[0].rstrip(":") == argument_at_fault
     for expected in also_contains:
         assert expected in message
     assert model_w_file.read_bytes() == file_bytes
@@ -246,3 +246,28 @@ async def test_R1_failed_write_is_a_tool_error_naming_the_path(
 
     assert str(model_w_file) in message
     assert model_w_file.read_bytes() == file_bytes
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R16_unknown_argument_is_an_error_listing_valid_ones(
+    client: Client, model_w_file: Path
+) -> None:
+    file_bytes = model_w_file.read_bytes()
+
+    message = await fail(client, "set_account", {"name": "Checking", "balnce": 6000})
+
+    assert message.split()[0] == "balnce"
+    assert "name, kind, balance, growth_rate, volatility, new_name" in message
+    assert model_w_file.read_bytes() == file_bytes
+    assert "none" in await fail(client, "show_model", {"verbose": True})
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R2_previous_shows_a_change_below_half_a_cent(
+    client: Client, model_w_file: Path
+) -> None:
+    updated = await succeed(client, "set_account", {"name": "Checking", "balance": 5000.004})
+
+    assert updated["previous"] == {"balance": 5000.00}
