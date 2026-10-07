@@ -1,56 +1,51 @@
 # Tasks 0001: Model and projection
-Rule: each task = one agent session = one reviewable PR.
+- Plan: Plan 0001
+Each task is a **slice**: a thin path through every layer it needs, demoable or verifiable on its
+own, one agent session, one reviewable branch.
 
-Spec 0001, Plan 0001. Branch per task: `task/0001-Tn-short-name`. Size guide: under ~400 lines
-of non-test code per task.
+`$S` below is `docs/specs/0001-model-and-projection.md`.
 
-| ID | Task | Covers AC | Depends on | Status |
-|----|------|-----------|------------|--------|
-| T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | done |
-| T2 | Core projection: growth, flows, caps, period rows, summary, totals | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | T1 | todo |
-| T3 | Store and `show_model` | AC3, AC11 | T1 | todo |
-| T4 | Name resolution, `set_account`, `remove_account` | AC4, AC5, AC6, AC7 | T3 | todo |
-| T5 | `set_flow`, `remove_flow` | AC8, AC9, AC10 | T4 | todo |
-| T6 | `project` tool, today's money, `set_inflation_rate`, read-only file lifecycle, latency | AC1, AC2, AC22, AC23, AC24 | T2, T4 | todo |
-| T7 | stdout hygiene and stderr logging | AC25 | T5, T6 | todo |
+| ID | Slice (what works afterwards, in user terms) | Covers AC | Blocked by | Gate command | Jira | Status |
+|----|-----------------------------------------------|-----------|------------|--------------|------|--------|
+| T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | `scripts/gates.sh` + grep (sdd-kit 0.1) | | done |
+| T2 | The core projects any model forward: rows per period, account summary, flow totals (unrounded) | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | - | `scripts/gates.sh $S AC14 AC15 AC16 AC17 AC18 AC19 AC20 AC21` | | todo |
+| T3 | `show_model` shows the model file, money rounded half up; writes are atomic | AC3, AC11, AC26 | - | `scripts/gates.sh $S AC3 AC11 AC26` | | todo |
+| T4 | The user builds and corrects accounts | AC4, AC5, AC6, AC7 | T3 | `scripts/gates.sh $S AC4 AC5 AC6 AC7` | | todo |
+| T5 | The user asks "where will I be", nominal or in today's money | AC1, AC2, AC22, AC23, AC24 | T2, T4 | `scripts/gates.sh $S AC1 AC2 AC22 AC23 AC24` | | todo |
+| T6 | The user builds and corrects flows | AC8, AC9, AC10 | T4 | `scripts/gates.sh $S AC8 AC9 AC10` | | todo |
+| T7 | The server runs cleanly under a real client: stdout is MCP only, logs on stderr | AC25 | T5, T6 | `scripts/gates.sh $S` | | todo |
 
-T2 and T3 can run in parallel. T5 and T6 both register tools in the server; run T5 first to
-avoid a conflicting merge. Every AC of Spec 0001 is covered by exactly one task.
+T2 and T3 run in parallel; so do T5 and T6. Every AC of Spec 0001 is in exactly one task.
 
-## Task notes
-- T1: `pyproject.toml` per ADR 0002 with ruff, mypy strict, pytest config and the
-  `integration` marker; `uv sync` must work from a clean checkout and `uv.lock` is committed
-  (ADR 0005). Core: Model, Account, Flow, kind and frequency enums,
-  `WhatIfError`; occurrence generation (R9). Server: factory taking a today callable, no
-  tools, stdio entry point. `tests/conftest.py`: fixed today, temp model path, in-process
-  client session. One smoke integration test so the integration gate has a test to run (Plan
-  0001, Risks). Verify and record in the review file: in-process session API, an argument
-  named `from`, omitted vs null arguments, and whether the SDK validates input schemas before
-  the handler and with what message.
-- T2: pure function, horizon end date in, projection out; no rounding inside. Model W core
-  builder goes in `conftest.py`.
-- T3: path resolved per call; load errors name the path and "not valid JSON" or "version N";
-  save writes a temp file in the same dir, chmod 0600, `os.replace`. Model W file builder in
-  `conftest.py`.
-- T4: name resolution (trim, case-insensitive, exact; error lists existing names) is shared by
-  every later tool. Operations are pure functions over a Model (Plan 0001, Approach).
-- T5: distinguishes an omitted argument from JSON null; `similar_flows` on every result.
-- T6: `project` refuses an empty model naming `set_account`; deflation per R15; neither
-  `show_model` nor `project` writes.
-- T7: logging configured to stderr at INFO by default (Plan 0001, Spec gaps, item 1); no
-  `print`; check that SDK loggers at INFO carry no names or amounts.
-
-## Gate run per task
-- T1 to T6: `scripts/gates.sh` with no argument (the AC coverage stage needs every AC of the
-  spec and would fail before T7), then show that each covered AC has its test:
-  `grep -n "def test_ACn_" tests/test_0001_*.py` for each n the task covers.
-- T7: `scripts/gates.sh docs/specs/0001-model-and-projection.md`, which must pass with all 25
-  AC covered.
+## Task notes (per task: seams, interfaces it creates or changes, decisions already taken)
+- T2 (S1, layer-only by Plan 0001, Approach): one pure function, (model, today, horizon end,
+  granularity) in, projection out, no rounding inside. Event-driven by date. Exposes balances
+  after the events of any date in range (Spec 0003) and computes one account's growth on one
+  date in a single function (Spec 0004). Occurrences filtered to strictly after today and on or
+  before the horizon end; `occurrence_dates` is unchanged. Model W core builder in
+  `conftest.py`. Over ~400 non-test lines: stop and split AC15 and AC21 into T2b (Plan 0001,
+  Risks).
+- T3 (S2, S3): store module: path resolved per call; load errors name the path and "not valid
+  JSON", "version N" or the shape problem; save writes a temp file in the same directory, chmod
+  0600, `os.replace`, creating parent directories. Server: tool registry with one module per tool
+  group, `app.py` only concatenates (Plan 0001, Approach); `WhatIfError` -> tool error with
+  `isError: true`; the half-up cents helper; `show_model`. Store-backed model file builder and
+  Model W file form in `conftest.py`.
+- T4 (S3): name resolution (trim, case-insensitive, exact; error lists existing names), shared
+  by T5 and T6. Account operations are pure functions over a Model. `kind` may change on update;
+  the resulting account is validated as new (Spec 0001 R2, amended). Numbers: a JSON boolean is
+  not a number.
+- T5 (S3): `project` arguments and shaping (R13, R14), deflation in core (R15),
+  `set_inflation_rate` (R6), empty model names `set_account`; neither `show_model` nor `project`
+  writes. AC1 and AC2 use `set_account` from T4.
+- T6 (S3): omitted vs JSON null; fixed/rate switching; `similar_flows` on every result; on
+  update the resulting flow is validated as new, the never-fires check only when start_date or
+  frequency is given; `rate_of` without `rate` per Spec 0001 R4 (amended).
+- T7 (S4): logging to stderr at INFO, no knob; no `print`; check SDK loggers at INFO carry no
+  names or amounts. The AC25 test also makes one rejected call (Plan 0001, Seams).
 
 ## Per-task Definition of Done
-- [ ] Gates pass (scripts/gates.sh output attached, run as in "Gate run per task")
-- [ ] Every covered AC has a passing test
+- [ ] Gate command green, output in the review record
+- [ ] Every covered AC has a passing test at its seam, written red first
+- [ ] Spec-review and standards-review findings resolved or waived by the owner
 - [ ] No spec or ADR drift
-- [ ] Regeneration count logged
-- [ ] Review file for the task written per conventions.md (gates output + review report)
-- [ ] Metrics row added to metrics/log.csv
