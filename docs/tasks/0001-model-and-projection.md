@@ -35,12 +35,18 @@ T2 and T3 run in parallel; so do T5 and T6. Every AC of Spec 0001 is in exactly 
   by T5 and T6. Account operations are pure functions over a Model. `kind` may change on update;
   the resulting account is validated as new (Spec 0001 R2, amended). Numbers: a JSON boolean is
   not a number.
+  Each account rule lives once, in core, as a check on `Account`; `set_account` and the store
+  loader both call it, so a file account breaking an R2 rule is a shape error (Spec 0001 R1,
+  amended at the Task 0001-T3 merge gate).
 - T5 (S3): `project` arguments and shaping (R13, R14), deflation in core (R15),
   `set_inflation_rate` (R6), empty model names `set_account`; neither `show_model` nor `project`
   writes. AC1 and AC2 use `set_account` from T4.
 - T6 (S3): omitted vs JSON null; fixed/rate switching; `similar_flows` on every result; on
   update the resulting flow is validated as new, the never-fires check only when start_date or
   frequency is given; `rate_of` without `rate` per Spec 0001 R4 (amended).
+  Each flow rule (amount or rate with rate_of, ranges) lives once, in core, as a check on `Flow`;
+  `set_flow` and the store loader both call it, replacing the loader's partial check and the
+  `assert` in `core/projection.py` (Spec 0001 R1, amended at the Task 0001-T3 merge gate).
 - T7 (S4): logging to stderr at INFO, no knob; no `print`; check SDK loggers at INFO carry no
   names or amounts. The AC25 test also makes one rejected call (Plan 0001, Seams).
 
