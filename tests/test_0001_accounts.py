@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
@@ -193,3 +194,55 @@ async def test_AC7_remove_account_refused_while_referenced(
         "Car loan",
         "Brokerage",
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R2_kind_change_validates_the_resulting_account(
+    client: Client, write_model_file: Callable[[Model], Path], today: date
+) -> None:
+    path = write_model_file(
+        Model(accounts=(Account("Overdrawn", AccountKind.ASSET, -50.0, today),))
+    )
+    file_bytes = path.read_bytes()
+
+    message = await fail(client, "set_account", {"name": "Overdrawn", "kind": "liability"})
+
+    assert "balance" in message
+    assert path.read_bytes() == file_bytes
+
+    changed = await succeed(
+        client, "set_account", {"name": "Overdrawn", "kind": "liability", "balance": 50}
+    )
+
+    assert changed["previous"] == {"kind": "asset", "balance": -50.00}
+    assert changed["account"]["kind"] == "liability"
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R16_boolean_is_not_a_number(client: Client, model_w_file: Path) -> None:
+    file_bytes = model_w_file.read_bytes()
+
+    message = await fail(client, "set_account", {"name": "X", "kind": "asset", "balance": True})
+
+    assert "balance" in message
+    assert model_w_file.read_bytes() == file_bytes
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R1_failed_write_is_a_tool_error_naming_the_path(
+    client: Client, model_w_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_bytes = model_w_file.read_bytes()
+
+    def failing_replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
+        raise OSError("simulated failure at the final replace")
+
+    monkeypatch.setattr(os, "replace", failing_replace)
+
+    message = await fail(client, "set_account", {"name": "Checking", "balance": 1})
+
+    assert str(model_w_file) in message
+    assert model_w_file.read_bytes() == file_bytes
