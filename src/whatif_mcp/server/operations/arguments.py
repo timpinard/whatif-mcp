@@ -1,9 +1,10 @@
 from collections.abc import Mapping
+from datetime import date
 from enum import StrEnum
 from typing import Any
 
 from whatif_mcp.core.errors import ValidationError, WhatIfError
-from whatif_mcp.core.validation import finite_number
+from whatif_mcp.core.validation import finite_number, parse_date
 
 
 class ArgumentError(WhatIfError):
@@ -57,6 +58,16 @@ def optional_choice[ChoiceT: StrEnum](
     if not isinstance(value, str) or value not in set(choices):
         raise ArgumentError(f"{key} must be one of {allowed}, not {value!r}.")
     return choices(value)
+
+
+def optional_date(arguments: Mapping[str, Any], key: str) -> date | None:
+    text = optional_text(arguments, key)
+    if text is None:
+        return None
+    try:
+        return parse_date(text)
+    except ValidationError as error:
+        raise ArgumentError(f"{key} {text!r} {error}.") from error
 
 
 def _text(arguments: Mapping[str, Any], key: str) -> str:

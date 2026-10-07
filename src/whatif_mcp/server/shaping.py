@@ -1,9 +1,11 @@
+from dataclasses import fields
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from whatif_mcp.core.model import Account, Flow
 
 CENT = Decimal("0.01")
+FLOW_RESULT_KEYS = {"from_account": "from", "to_account": "to"}
 
 
 def round_money(value: float) -> float:
@@ -33,3 +35,13 @@ def shape_flow(flow: Flow) -> dict[str, Any]:
         "start_date": flow.start_date.isoformat(),
         "end_date": None if flow.end_date is None else flow.end_date.isoformat(),
     }
+
+
+def shape_flow_changes(previous: Flow, flow: Flow) -> dict[str, Any]:
+    earlier = shape_flow(previous)
+    changed_keys = (
+        FLOW_RESULT_KEYS.get(field.name, field.name)
+        for field in fields(Flow)
+        if getattr(previous, field.name) != getattr(flow, field.name)
+    )
+    return {key: earlier[key] for key in changed_keys}

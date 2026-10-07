@@ -86,22 +86,22 @@ def test_R1_load_accepts_model_w_document(model_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("field_path", "value", "expected_problem"),
+    ("entry_path", "fields", "expected_problem"),
     [
-        (("flows", 1, "to"), "Marina", '"Marina"'),
-        (("flows", 1, "from"), "Marina", '"Marina"'),
-        (("flows", 0, "rate_of"), "Marina", '"Marina"'),
-        (("accounts", 1, "name"), "CHECKING", '"CHECKING"'),
-        (("flows", 1, "name"), "salary", '"salary"'),
-        (("accounts", 1, "name"), " Checking ", '" Checking "'),
+        (("flows", 1), {"to": "Marina"}, '"Marina"'),
+        (("flows", 1), {"from": "Marina"}, '"Marina"'),
+        (("flows", 0), {"amount": None, "rate": 0.02, "rate_of": "Marina"}, '"Marina"'),
+        (("accounts", 1), {"name": "CHECKING"}, '"CHECKING"'),
+        (("flows", 1), {"name": "salary"}, '"salary"'),
+        (("accounts", 1), {"name": " Checking "}, '" Checking "'),
     ],
 )
 def test_R1_load_refuses_broken_references_and_duplicate_names(
-    model_path: Path, field_path: tuple[str, int, str], value: str, expected_problem: str
+    model_path: Path, entry_path: tuple[str, int], fields: dict[str, Any], expected_problem: str
 ) -> None:
     document = model_w_document()
-    section, index, key = field_path
-    document[section][index][key] = value
+    section, index = entry_path
+    document[section][index].update(fields)
     original = write_text(model_path, json.dumps(document)).read_bytes()
 
     with pytest.raises(ModelFileError) as raised:
@@ -160,8 +160,8 @@ def test_R1_load_refuses_integer_too_large_for_a_float(model_path: Path) -> None
 @pytest.mark.parametrize(
     ("flow_fields", "expected_problem"),
     [
-        ({"amount": None}, "neither"),
-        ({"amount": None, "rate": 0.02}, '"rate_of"'),
+        ({"amount": None}, "amount or rate"),
+        ({"amount": None, "rate": 0.02}, "rate_of"),
     ],
 )
 def test_R1_load_refuses_flow_without_amount_or_complete_rate(
@@ -177,6 +177,34 @@ def test_R1_load_refuses_flow_without_amount_or_complete_rate(
     assert str(model_path) in str(raised.value)
     assert '"Salary"' in str(raised.value)
     assert expected_problem in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("flow_fields", "expected_problem"),
+    [
+        ({"from": None, "to": None}, "from and to"),
+        ({"from": "Car loan"}, "to"),
+        ({"rate": 0.02, "rate_of": "Checking"}, "amount and rate"),
+        ({"rate_of": "Checking"}, "rate"),
+        ({"amount": 0.0}, "amount"),
+        ({"amount": None, "rate": 0.0, "rate_of": "Checking"}, "rate"),
+        ({"amount": None, "rate": 1.5, "rate_of": "Checking"}, "rate"),
+        ({"end_date": "2026-10-31"}, "end_date"),
+    ],
+)
+def test_R1_load_refuses_flow_breaking_an_R4_rule(
+    model_path: Path, flow_fields: dict[str, Any], expected_problem: str
+) -> None:
+    document = model_w_document()
+    document["flows"][1].update(flow_fields)
+    original = write_text(model_path, json.dumps(document)).read_bytes()
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert f'flow "Car payment": {expected_problem}' in str(raised.value)
+    assert model_path.read_bytes() == original
 
 
 @pytest.mark.parametrize(
@@ -229,3 +257,16 @@ def test_R1_load_accepts_inflation_rate_just_inside_the_range(model_path: Path) 
     write_text(model_path, json.dumps(document))
 
     assert load_model(model_path).inflation_rate == -0.99
+
+
+@pytest.mark.parametrize("date_text", ["20261101", "2026-W45-7", "2026-11-01T00:00"])
+def test_R1_load_refuses_dates_not_in_yyyy_mm_dd_form(model_path: Path, date_text: str) -> None:
+    document = model_w_document()
+    document["flows"][1]["start_date"] = date_text
+    write_text(model_path, json.dumps(document))
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"start_date" is not a YYYY-MM-DD date' in str(raised.value)
