@@ -146,6 +146,8 @@ ACCOUNT_NAMES = "Checking, Savings, Car loan"
         ),
         ({**FIXED_FROM_CHECKING, "frequency": "daily"}, "frequency", ["monthly", "one_time"]),
         ({**FIXED_FROM_CHECKING, "start_date": "10/1/2026"}, "start_date", ["YYYY-MM-DD"]),
+        ({**FIXED_FROM_CHECKING, "start_date": "20261101"}, "start_date", ["YYYY-MM-DD"]),
+        ({**FIXED_FROM_CHECKING, "end_date": "2027-W01-1"}, "end_date", ["YYYY-MM-DD"]),
         (
             {**FIXED_FROM_CHECKING, "frequency": "one_time", "start_date": "2026-10-06"},
             "start_date",

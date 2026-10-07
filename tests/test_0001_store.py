@@ -257,3 +257,16 @@ def test_R1_load_accepts_inflation_rate_just_inside_the_range(model_path: Path) 
     write_text(model_path, json.dumps(document))
 
     assert load_model(model_path).inflation_rate == -0.99
+
+
+@pytest.mark.parametrize("date_text", ["20261101", "2026-W45-7", "2026-11-01T00:00"])
+def test_R1_load_refuses_dates_not_in_yyyy_mm_dd_form(model_path: Path, date_text: str) -> None:
+    document = model_w_document()
+    document["flows"][1]["start_date"] = date_text
+    write_text(model_path, json.dumps(document))
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"start_date" is not a YYYY-MM-DD date' in str(raised.value)

@@ -1,5 +1,6 @@
 import json
 import math
+import re
 from datetime import date
 
 from whatif_mcp.core.errors import ValidationError
@@ -12,6 +13,8 @@ MAX_VOLATILITY = 1.0
 MIN_INFLATION_RATE = -1.0
 MAX_INFLATION_RATE = 1.0
 MAX_FLOW_RATE = 1.0
+DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+DATE_PROBLEM = "is not a YYYY-MM-DD date"
 
 
 def check_account(account: Account) -> None:
@@ -107,3 +110,12 @@ def finite_number(value: object) -> float:
     if not math.isfinite(number):
         raise ValidationError(f"is {json.dumps(number)}, not a finite number")
     return number
+
+
+def parse_date(text: str) -> date:
+    if DATE_PATTERN.fullmatch(text) is None:
+        raise ValidationError(DATE_PROBLEM)
+    try:
+        return date.fromisoformat(text)
+    except ValueError as error:
+        raise ValidationError(DATE_PROBLEM) from error

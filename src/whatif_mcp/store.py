@@ -13,6 +13,7 @@ from whatif_mcp.core.validation import (
     check_flow,
     check_inflation_rate,
     finite_number,
+    parse_date,
 )
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
@@ -244,9 +245,9 @@ def _text(entry: Mapping[str, Any], key: str) -> str:
 def _date(entry: Mapping[str, Any], key: str) -> date:
     text = _text(entry, key)
     try:
-        return date.fromisoformat(text)
-    except ValueError as error:
-        raise _ShapeProblem(f'"{key}" is not a YYYY-MM-DD date') from error
+        return parse_date(text)
+    except ValidationError as error:
+        raise _ShapeProblem(f'"{key}" {error}') from error
 
 
 def _choice[ChoiceT: AccountKind | Frequency](
