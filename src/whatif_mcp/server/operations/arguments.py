@@ -22,6 +22,13 @@ def optional_text(arguments: Mapping[str, Any], key: str) -> str | None:
     return _text(arguments, key)
 
 
+def required_number(arguments: Mapping[str, Any], key: str) -> float:
+    number = optional_number(arguments, key)
+    if number is None:
+        raise ArgumentError(f"{key} is required.")
+    return number
+
+
 def optional_number(arguments: Mapping[str, Any], key: str) -> float | None:
     if key not in arguments:
         return None
@@ -29,6 +36,15 @@ def optional_number(arguments: Mapping[str, Any], key: str) -> float | None:
         return finite_number(arguments[key])
     except ValidationError as error:
         raise ArgumentError(f"{key} {error}.") from error
+
+
+def optional_boolean(arguments: Mapping[str, Any], key: str) -> bool | None:
+    if key not in arguments:
+        return None
+    value = arguments[key]
+    if not isinstance(value, bool):
+        raise ArgumentError(f"{key} must be true or false, not {value!r}.")
+    return value
 
 
 def optional_choice[ChoiceT: StrEnum](
