@@ -265,3 +265,25 @@ def test_AC20_period_rows_and_granularity_independent_end(
         balances = row.balances
         expected_net_worth = balances["Checking"] + balances["Savings"] - balances["Car loan"]
         assert row.net_worth == pytest.approx(expected_net_worth)
+
+
+def test_AC21_account_summary_flow_totals_and_horizon(today: date, model_w: Model) -> None:
+    projection = project_years(model_w, today, 3)
+
+    assert projection.today == date(2026, 10, 6)
+    assert projection.horizon_end == date(2029, 10, 6)
+    assert (projection.periods[0].label, projection.periods[-1].label) == ("2026", "2029")
+    summaries = {
+        summary.name: (summary.start_balance, summary.end_balance, summary.reaches_zero)
+        for summary in projection.accounts
+    }
+    assert summaries == {
+        "Checking": (cents(5000.00), cents(138437.49), None),
+        "Savings": (cents(0.00), cents(0.00), None),
+        "Car loan": (cents(10000.00), cents(0.00), date(2028, 8, 1)),
+    }
+    assert summary_of(projection, "Car loan").growth_total == cents(562.51)
+    assert flow_totals(projection) == {
+        "Salary": cents(144000.00),
+        "Car payment": cents(10562.51),
+    }
