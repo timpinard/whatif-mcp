@@ -4,8 +4,13 @@ from typing import Any
 
 from mcp.server.lowlevel import Server
 
+from whatif_mcp.server.registry import create_registry_server
+from whatif_mcp.server.tools import read
+
 SERVER_NAME = "whatif-mcp"
+
+TOOLS = (*read.TOOLS,)
 
 
 def create_server(today: Callable[[], date]) -> Server[Any]:
-    return Server(SERVER_NAME)
+    return create_registry_server(SERVER_NAME, TOOLS, today)

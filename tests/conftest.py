@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import date
 from pathlib import Path
 
@@ -7,6 +7,7 @@ from mcp import Client
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 from whatif_mcp.server import create_server
+from whatif_mcp.store import save_model
 
 FIXED_TODAY = date(2026, 10, 6)
 
@@ -58,3 +59,17 @@ def model_w(today: date) -> Model:
             ),
         ),
     )
+
+
+@pytest.fixture
+def write_model_file(model_path: Path) -> Callable[[Model], Path]:
+    def write(model: Model) -> Path:
+        save_model(model_path, model)
+        return model_path
+
+    return write
+
+
+@pytest.fixture
+def model_w_file(write_model_file: Callable[[Model], Path], model_w: Model) -> Path:
+    return write_model_file(model_w)

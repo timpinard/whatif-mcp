@@ -1,0 +1,35 @@
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
+
+from whatif_mcp.core.model import Account, Flow
+
+CENT = Decimal("0.01")
+
+
+def round_money(value: float) -> float:
+    return float(Decimal(repr(value)).quantize(CENT, rounding=ROUND_HALF_UP))
+
+
+def shape_account(account: Account) -> dict[str, Any]:
+    return {
+        "name": account.name,
+        "kind": account.kind.value,
+        "balance": round_money(account.balance),
+        "growth_rate": account.growth_rate,
+        "volatility": account.volatility,
+        "balance_as_of": account.balance_as_of.isoformat(),
+    }
+
+
+def shape_flow(flow: Flow) -> dict[str, Any]:
+    return {
+        "name": flow.name,
+        "from": flow.from_account,
+        "to": flow.to_account,
+        "amount": None if flow.amount is None else round_money(flow.amount),
+        "rate": flow.rate,
+        "rate_of": flow.rate_of,
+        "frequency": flow.frequency.value,
+        "start_date": flow.start_date.isoformat(),
+        "end_date": None if flow.end_date is None else flow.end_date.isoformat(),
+    }
