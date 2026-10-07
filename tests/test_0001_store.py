@@ -93,6 +93,7 @@ def test_R1_load_accepts_model_w_document(model_path: Path) -> None:
         (("flows", 0, "rate_of"), "Marina", '"Marina"'),
         (("accounts", 1, "name"), "CHECKING", '"CHECKING"'),
         (("flows", 1, "name"), "salary", '"salary"'),
+        (("accounts", 1, "name"), " Checking ", '" Checking "'),
     ],
 )
 def test_R1_load_refuses_broken_references_and_duplicate_names(
@@ -112,18 +113,18 @@ def test_R1_load_refuses_broken_references_and_duplicate_names(
 
 
 @pytest.mark.parametrize(
-    ("version_text", "expected_problem"),
-    [("true", "version true"), ("1.0", "version 1.0"), (None, "no version")],
+    ("version", "expected_problem"),
+    [(True, "version true"), (1.0, "version 1.0"), (None, "no version")],
 )
 def test_R1_load_requires_integer_version_1(
-    model_path: Path, version_text: str | None, expected_problem: str
+    model_path: Path, version: bool | float | None, expected_problem: str
 ) -> None:
-    text = json.dumps(model_w_document())
-    if version_text is None:
-        text = text.replace('"version": 1, ', "")
+    document = model_w_document()
+    if version is None:
+        del document["version"]
     else:
-        text = text.replace('"version": 1,', f'"version": {version_text},')
-    write_text(model_path, text)
+        document["version"] = version
+    write_text(model_path, json.dumps(document))
 
     with pytest.raises(ModelFileError) as raised:
         load_model(model_path)
@@ -142,3 +143,37 @@ def test_R1_load_refuses_non_finite_numbers(model_path: Path, number_text: str) 
 
     assert str(model_path) in str(raised.value)
     assert number_text in str(raised.value)
+
+
+def test_R1_load_refuses_integer_too_large_for_a_float(model_path: Path) -> None:
+    document = model_w_document()
+    document["accounts"][0]["balance"] = 10**400
+    write_text(model_path, json.dumps(document))
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"balance"' in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("flow_fields", "expected_problem"),
+    [
+        ({"amount": None}, "neither"),
+        ({"amount": None, "rate": 0.02}, '"rate_of"'),
+    ],
+)
+def test_R1_load_refuses_flow_without_amount_or_complete_rate(
+    model_path: Path, flow_fields: dict[str, Any], expected_problem: str
+) -> None:
+    document = model_w_document()
+    document["flows"][0].update(flow_fields)
+    write_text(model_path, json.dumps(document))
+
+    with pytest.raises(ModelFileError) as raised:
+        load_model(model_path)
+
+    assert str(model_path) in str(raised.value)
+    assert '"Salary"' in str(raised.value)
+    assert expected_problem in str(raised.value)

@@ -103,12 +103,12 @@ def _check_names(model: Model) -> None:
                 )
 
 
-def _check_unique(kind: str, names: list[str]) -> None:
+def _check_unique(entity: str, names: list[str]) -> None:
     seen: set[str] = set()
     for name in names:
         matching_key = name.strip().casefold()
         if matching_key in seen:
-            raise _ShapeProblem(f'{kind} name "{name}" is used more than once')
+            raise _ShapeProblem(f'{entity} name "{name}" is used more than once')
         seen.add(matching_key)
 
 
@@ -171,7 +171,7 @@ def _account_from_document(entry: Mapping[str, Any]) -> Account:
 
 
 def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
-    return Flow(
+    flow = Flow(
         name=_text(entry, "name"),
         from_account=_optional(entry, "from", _text),
         to_account=_optional(entry, "to", _text),
@@ -182,6 +182,11 @@ def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
         start_date=_date(entry, "start_date"),
         end_date=_optional(entry, "end_date", _date),
     )
+    if flow.amount is None and flow.rate is None:
+        raise _ShapeProblem(f'flow "{flow.name}" has neither "amount" nor "rate"')
+    if flow.rate is not None and flow.rate_of is None:
+        raise _ShapeProblem(f'flow "{flow.name}" has "rate" but no "rate_of"')
+    return flow
 
 
 def _field(entry: Mapping[str, Any], key: str) -> Any:
@@ -207,9 +212,13 @@ def _number(entry: Mapping[str, Any], key: str) -> float:
     value = _field(entry, key)
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise _ShapeProblem(f'"{key}" is not a number')
-    if not math.isfinite(value):
-        raise _ShapeProblem(f'"{key}" is {json.dumps(value)}, not a finite number')
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError as error:
+        raise _ShapeProblem(f'"{key}" is too large to be a number') from error
+    if not math.isfinite(number):
+        raise _ShapeProblem(f'"{key}" is {json.dumps(number)}, not a finite number')
+    return number
 
 
 def _text(entry: Mapping[str, Any], key: str) -> str:
