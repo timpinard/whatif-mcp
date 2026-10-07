@@ -12,7 +12,7 @@ own, one agent session, one reviewable branch.
 | T3 | `show_model` shows the model file, money rounded half up; writes are atomic | AC3, AC11, AC26 | - | `scripts/gates.sh $S AC3 AC11 AC26` | | done |
 | T4 | The user builds and corrects accounts | AC4, AC5, AC6, AC7 | T3 | `scripts/gates.sh $S AC4 AC5 AC6 AC7` | | done |
 | T5 | The user asks "where will I be", nominal or in today's money | AC1, AC2, AC22, AC23, AC24 | T2, T4 | `scripts/gates.sh $S AC1 AC2 AC22 AC23 AC24` | | done |
-| T6 | The user builds and corrects flows | AC8, AC9, AC10 | T4 | `scripts/gates.sh $S AC8 AC9 AC10` | | todo |
+| T6 | The user builds and corrects flows | AC8, AC9, AC10 | T4 | `scripts/gates.sh $S AC8 AC9 AC10` | | done |
 | T7 | The server runs cleanly under a real client: stdout is MCP only, logs on stderr | AC25 | T5, T6 | `scripts/gates.sh $S` | | todo |
 
 T2 and T3 run in parallel; so do T5 and T6. Every AC of Spec 0001 is in exactly one task.
