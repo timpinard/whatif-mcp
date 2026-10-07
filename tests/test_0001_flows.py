@@ -65,7 +65,7 @@ async def test_AC8_set_flow_creates_updates_and_renames(client: Client, model_w_
     )
 
     assert corrected["created"] is False
-    assert corrected["previous"]["amount"] == 500.00
+    assert corrected["previous"] == {"amount": 500.00, "end_date": "2027-12-01"}
     assert corrected["similar_flows"] == ["Extra car payment"]
     assert flow_named(await shown_flows(client), "Car payment") == {
         "name": "Car payment",
@@ -130,7 +130,11 @@ ACCOUNT_NAMES = "Checking, Savings, Car loan"
 @pytest.mark.parametrize(
     ("arguments", "argument_at_fault", "also_contains"),
     [
-        ({"name": "X", "amount": 50, "frequency": "monthly"}, "from", ["to"]),
+        (
+            {"name": "X", "amount": 50, "frequency": "monthly"},
+            "from",
+            ["from and to are both outside", "at least one account"],
+        ),
         ({**FIXED_FROM_CHECKING, "to": "checking"}, "to", []),
         ({**FIXED_FROM_CHECKING, "rate": 0.1, "rate_of": "Savings"}, "amount", ["rate"]),
         (MONTHLY_FROM_CHECKING, "amount", ["rate"]),
