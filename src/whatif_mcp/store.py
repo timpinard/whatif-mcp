@@ -8,7 +8,12 @@ from typing import Any
 
 from whatif_mcp.core.errors import ValidationError, WhatIfError
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
-from whatif_mcp.core.validation import check_account, check_inflation_rate, finite_number
+from whatif_mcp.core.validation import (
+    check_account,
+    check_flow,
+    check_inflation_rate,
+    finite_number,
+)
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
@@ -196,10 +201,10 @@ def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
         start_date=_date(entry, "start_date"),
         end_date=_optional(entry, "end_date", _date),
     )
-    if flow.amount is None and flow.rate is None:
-        raise _ShapeProblem(f'flow "{flow.name}" has neither "amount" nor "rate"')
-    if flow.rate is not None and flow.rate_of is None:
-        raise _ShapeProblem(f'flow "{flow.name}" has "rate" but no "rate_of"')
+    try:
+        check_flow(flow)
+    except ValidationError as error:
+        raise _ShapeProblem(f'flow "{flow.name}": {str(error).rstrip(".")}') from error
     return flow
 
 

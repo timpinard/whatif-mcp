@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 from whatif_mcp.core.recurrence import occurrence_dates
+from whatif_mcp.core.validation import rate_terms
 
 MONTHS_PER_QUARTER = 3
 MONTHS_PER_YEAR = 12
@@ -151,9 +152,9 @@ class Simulation:
     def _occurrence_amount(self, flow: Flow) -> float:
         if flow.amount is not None:
             return flow.amount
-        assert flow.rate is not None and flow.rate_of is not None
-        base = max(0.0, self.balances[flow.rate_of])
-        return flow.rate * base / OCCURRENCES_PER_YEAR[flow.frequency]
+        rate, rate_of = rate_terms(flow)
+        base = max(0.0, self.balances[rate_of])
+        return rate * base / OCCURRENCES_PER_YEAR[flow.frequency]
 
     def _move(self, account: str, inflow: float) -> None:
         if self._kinds[account] is AccountKind.ASSET:
