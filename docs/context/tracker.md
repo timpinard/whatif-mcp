@@ -10,7 +10,7 @@ and point to the doc; they are not edited in Jira. Issue keys are recorded on ea
 | Epic doc (docs/epics/) | Epic | Epic approved | PO | Problem, Outcome, Success measures, Out of scope; link to the doc |
 | Spec (docs/specs/) | Story, child of the epic | Spec drafted | spec skill (draft), PO + Eng approve | Intent, AC table as a checklist; link to the spec |
 | Task row (docs/tasks/) | Sub-task of the story, with Blocked-by links | Plan approved | plan skill | Task title, AC covered, depends on; link to the tasks doc |
-| QA finding beyond the AC | Bug, linked to the story | qa-agent report | build skill proposes, Eng confirms | Repro and the proposed spec amendment |
+| QA finding beyond the AC | Bug, linked to the story | qa-agent report | QA confirms | Repro and the proposed spec amendment |
 | Escaped defect | Bug, label `escaped` | Found after merge | Anyone | Repro; feeds the escape rate in metrics |
 | ADR | none (linked from the epic) | - | - | - |
 

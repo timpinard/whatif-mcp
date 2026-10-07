@@ -10,14 +10,15 @@ The projection behavior is ported from an existing engine (ADR 0004).
 ## Process
 Spec-driven, with the sdd-kit plugin (version in `.sdd-kit`). Stages: epic -> spec -> plan -> build
 -> merge, each started with its skill (`/sdd-kit:epic`, `/sdd-kit:spec`, `/sdd-kit:plan`,
-`/sdd-kit:build`). Human gates: accept ADRs, approve epic, approve spec, approve plan, merge.
+`/sdd-kit:build`). Human gates: accept ADRs, approve epic, approve spec (QA signs off the AC), approve plan, merge,
+QA findings (bug or spec gap).
 
 ## Read before any task
 - docs/context/architecture.md, docs/context/conventions.md, docs/context/glossary.md
 - docs/adr/ (accepted ADRs are binding)
 
 ## Commands
-- Setup: `uv sync` (ADR 0005)
+- Setup: `uv sync` (ADR 0005), and `claude plugin marketplace add <path to sdd-kit>` (the kit has no git remote)
 - Gates: `scripts/gates.sh [docs/specs/NNNN-name.md [AC ids...]]`
 - Lint: `uv run --locked ruff format --check .` then `uv run --locked ruff check .`
 - Typecheck: `uv run --locked mypy src`
