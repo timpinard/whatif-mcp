@@ -1,0 +1,2 @@
+class WhatIfError(Exception):
+    pass
