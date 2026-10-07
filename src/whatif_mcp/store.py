@@ -7,8 +7,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from whatif_mcp.core.errors import WhatIfError
+from whatif_mcp.core.errors import RuleError, WhatIfError
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
+from whatif_mcp.core.rules import check_account
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
@@ -160,7 +161,7 @@ def _model_from_document(document: Mapping[str, Any]) -> Model:
 
 
 def _account_from_document(entry: Mapping[str, Any]) -> Account:
-    return Account(
+    account = Account(
         name=_text(entry, "name"),
         kind=_choice(entry, "kind", AccountKind),
         balance=_number(entry, "balance"),
@@ -168,6 +169,11 @@ def _account_from_document(entry: Mapping[str, Any]) -> Account:
         growth_rate=_number(entry, "growth_rate"),
         volatility=_number(entry, "volatility"),
     )
+    try:
+        check_account(account)
+    except RuleError as error:
+        raise _ShapeProblem(f'account "{account.name}": {str(error).rstrip(".")}') from error
+    return account
 
 
 def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
