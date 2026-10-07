@@ -227,3 +227,41 @@ def test_AC19_same_day_flows_apply_in_model_order(today: date) -> None:
 
     assert balance_at(spend_first, "2026-11", "Savings") == cents(5.00)  # 500 x 0.12 / 12
     assert balance_at(sweep_first, "2026-11", "Savings") == cents(10.00)  # 1000 x 0.12 / 12
+
+
+@pytest.mark.parametrize(
+    ("granularity", "row_count", "first_label", "last_label"),
+    [
+        (Granularity.MONTHLY, 13, "2026-10", "2027-10"),
+        (Granularity.QUARTERLY, 5, "2026-Q4", "2027-Q4"),
+        (Granularity.ANNUAL, 2, "2026", "2027"),
+    ],
+)
+def test_AC20_period_rows_and_granularity_independent_end(
+    today: date,
+    model_w: Model,
+    granularity: Granularity,
+    row_count: int,
+    first_label: str,
+    last_label: str,
+) -> None:
+    projection = project_years(model_w, today, 1, granularity)
+
+    assert len(projection.periods) == row_count
+    first_row, last_row = projection.periods[0], projection.periods[-1]
+    assert (first_row.label, last_row.label) == (first_label, last_label)
+    expected_first_end = (
+        date(2026, 10, 31) if granularity is Granularity.MONTHLY else date(2026, 12, 31)
+    )
+    assert first_row.end_date == expected_first_end
+    assert last_row.end_date == date(2027, 10, 6)
+    assert last_row.balances == {
+        "Checking": cents(47000.00),
+        "Savings": cents(0.00),
+        "Car loan": cents(4449.00),
+    }
+    assert last_row.net_worth == cents(42551.00)
+    for row in projection.periods:
+        balances = row.balances
+        expected_net_worth = balances["Checking"] + balances["Savings"] - balances["Car loan"]
+        assert row.net_worth == pytest.approx(expected_net_worth)
