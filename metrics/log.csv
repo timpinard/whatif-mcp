@@ -1,2 +1,3 @@
 date,spec_id,task_id,first_pass,regenerations,review_findings_agent,review_findings_human,escaped_to_prod,cycle_time_hours
 2026-10-07,0001,T1,no,1,3,0,,20.7
+2026-10-07,0001,T2,yes,0,16,0,,0.2

@@ -5,6 +5,8 @@ prose, anti-pattern list). This file adds what is specific to this repo.
 ## Code style
 - Python 3.12, src layout (`src/whatif_mcp/`), `ruff format` and `ruff check`, `mypy --strict` on src.
 - Dataclasses (frozen where possible) for domain types; no untyped dicts across module boundaries.
+- Exception: a tool's JSON result may be a `dict[str, Any]` from the tool module to the MCP
+  registry; domain data stays typed (owner ruling, Task 0001-T3 review).
 - Money is `float`, rounded to cents only when shaped for output.
 
 ## Numbers and precision

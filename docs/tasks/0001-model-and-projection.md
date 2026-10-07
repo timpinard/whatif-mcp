@@ -8,7 +8,7 @@ own, one agent session, one reviewable branch.
 | ID | Slice (what works afterwards, in user terms) | Covers AC | Blocked by | Gate command | Jira | Status |
 |----|-----------------------------------------------|-----------|------------|--------------|------|--------|
 | T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | `scripts/gates.sh` + grep (sdd-kit 0.1) | | done |
-| T2 | The core projects any model forward: rows per period, account summary, flow totals (unrounded) | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | - | `scripts/gates.sh $S AC14 AC15 AC16 AC17 AC18 AC19 AC20 AC21` | | todo |
+| T2 | The core projects any model forward: rows per period, account summary, flow totals (unrounded) | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | - | `scripts/gates.sh $S AC14 AC15 AC16 AC17 AC18 AC19 AC20 AC21` | | done |
 | T3 | `show_model` shows the model file, money rounded half up; writes are atomic | AC3, AC11, AC26 | - | `scripts/gates.sh $S AC3 AC11 AC26` | | todo |
 | T4 | The user builds and corrects accounts | AC4, AC5, AC6, AC7 | T3 | `scripts/gates.sh $S AC4 AC5 AC6 AC7` | | todo |
 | T5 | The user asks "where will I be", nominal or in today's money | AC1, AC2, AC22, AC23, AC24 | T2, T4 | `scripts/gates.sh $S AC1 AC2 AC22 AC23 AC24` | | todo |
