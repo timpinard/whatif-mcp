@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import fail, succeed
+from helpers import fail, succeed
 from mcp import Client
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
