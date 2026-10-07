@@ -79,3 +79,29 @@ async def test_AC4_set_account_creates_with_defaults_and_updates_given_fields(
     await succeed(client, "set_account", {"name": "Checking", "balance": 6000})
 
     assert (await shown_accounts(client))[0]["balance_as_of"] == "2026-10-06"
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC5_rename_account_keeps_flows_and_rejects_collision(
+    client: Client, model_w_file: Path
+) -> None:
+    await succeed(client, "set_account", {"name": "Car loan", "new_name": "Auto loan"})
+
+    flows = (await succeed(client, "show_model", {}))["flows"]
+    assert [flow["to"] for flow in flows if flow["name"] == "Car payment"] == ["Auto loan"]
+
+    file_bytes = model_w_file.read_bytes()
+    message = await fail(client, "set_account", {"name": "Savings", "new_name": "checking"})
+
+    assert '"Checking"' in message
+    assert "new_name" in message
+    assert model_w_file.read_bytes() == file_bytes
+
+    await succeed(client, "set_account", {"name": "checking", "new_name": "CHECKING"})
+
+    assert [account["name"] for account in await shown_accounts(client)] == [
+        "CHECKING",
+        "Savings",
+        "Auto loan",
+    ]
