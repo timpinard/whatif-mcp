@@ -10,7 +10,7 @@ own, one agent session, one reviewable branch.
 | T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | `scripts/gates.sh` + grep (sdd-kit 0.1) | | done |
 | T2 | The core projects any model forward: rows per period, account summary, flow totals (unrounded) | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | - | `scripts/gates.sh $S AC14 AC15 AC16 AC17 AC18 AC19 AC20 AC21` | | done |
 | T3 | `show_model` shows the model file, money rounded half up; writes are atomic | AC3, AC11, AC26 | - | `scripts/gates.sh $S AC3 AC11 AC26` | | done |
-| T4 | The user builds and corrects accounts | AC4, AC5, AC6, AC7 | T3 | `scripts/gates.sh $S AC4 AC5 AC6 AC7` | | todo |
+| T4 | The user builds and corrects accounts | AC4, AC5, AC6, AC7 | T3 | `scripts/gates.sh $S AC4 AC5 AC6 AC7` | | done |
 | T5 | The user asks "where will I be", nominal or in today's money | AC1, AC2, AC22, AC23, AC24 | T2, T4 | `scripts/gates.sh $S AC1 AC2 AC22 AC23 AC24` | | todo |
 | T6 | The user builds and corrects flows | AC8, AC9, AC10 | T4 | `scripts/gates.sh $S AC8 AC9 AC10` | | todo |
 | T7 | The server runs cleanly under a real client: stdout is MCP only, logs on stderr | AC25 | T5, T6 | `scripts/gates.sh $S` | | todo |
@@ -47,6 +47,9 @@ T2 and T3 run in parallel; so do T5 and T6. Every AC of Spec 0001 is in exactly 
   Each flow rule (amount or rate with rate_of, ranges) lives once, in core, as a check on `Flow`;
   `set_flow` and the store loader both call it, replacing the loader's partial check and the
   `assert` in `core/projection.py` (Spec 0001 R1, amended at the Task 0001-T3 merge gate).
+  Build `previous` from `Flow` field values, not from shaped keys ("from"/"to" differ from
+  `from_account`/`to_account`; Task 0001-T4 review). Reuse `server/operations/names.py`, the
+  registry's unknown-argument check and `server/tools/writing.py` for save failures.
 - T7 (S4): logging to stderr at INFO, no knob; no `print`; check SDK loggers at INFO carry no
   names or amounts. The AC25 test also makes one rejected call (Plan 0001, Seams).
 
