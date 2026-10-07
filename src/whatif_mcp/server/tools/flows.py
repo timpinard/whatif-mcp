@@ -1,12 +1,11 @@
-from dataclasses import fields
 from typing import Any
 
 from mcp import types
 
-from whatif_mcp.core.model import Flow, Frequency
+from whatif_mcp.core.model import Frequency
 from whatif_mcp.server.operations import flows as operations
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
-from whatif_mcp.server.shaping import shape_flow
+from whatif_mcp.server.shaping import shape_flow, shape_flow_changes
 from whatif_mcp.server.tools.writing import write_model_file
 from whatif_mcp.store import load_model, resolve_model_path
 
@@ -21,7 +20,6 @@ REMOVE_FLOW_DESCRIPTION = "Remove a flow (names match ignoring case and surround
 
 NAME_PROPERTY = {"type": "string", "description": "Flow name."}
 DATE_DESCRIPTION = "YYYY-MM-DD"
-RESULT_KEYS = {"from_account": "from", "to_account": "to"}
 
 SET_FLOW_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -30,7 +28,10 @@ SET_FLOW_SCHEMA: dict[str, Any] = {
         "from": {"type": ["string", "null"], "description": "Account paid from; omit for outside."},
         "to": {"type": ["string", "null"], "description": "Account paid to; omit for outside."},
         "amount": {"type": "number", "description": "Fixed amount moved each time, above 0."},
-        "rate": {"type": "number", "description": "Annual rate of rate_of's balance, 0 to 1."},
+        "rate": {
+            "type": "number",
+            "description": "Annual rate of rate_of's balance, above 0, at most 1.",
+        },
         "rate_of": {"type": "string", "description": "Account whose balance the rate applies to."},
         "frequency": {"type": "string", "enum": [frequency.value for frequency in Frequency]},
         "start_date": {"type": "string", "description": DATE_DESCRIPTION},
@@ -55,7 +56,7 @@ def set_flow(call: ToolCall) -> dict[str, Any]:
     write_model_file(path, edit.model)
     result: dict[str, Any] = {"created": edit.previous is None, "flow": shape_flow(edit.flow)}
     if edit.previous is not None:
-        result["previous"] = _changed_fields(edit.previous, edit.flow)
+        result["previous"] = shape_flow_changes(edit.previous, edit.flow)
     result["similar_flows"] = list(edit.similar_flows)
     return result
 
@@ -65,16 +66,6 @@ def remove_flow(call: ToolCall) -> dict[str, Any]:
     removal = operations.remove_flow(load_model(path), call.arguments)
     write_model_file(path, removal.model)
     return {"removed": shape_flow(removal.flow)}
-
-
-def _changed_fields(previous: Flow, flow: Flow) -> dict[str, Any]:
-    earlier = shape_flow(previous)
-    changed_keys = (
-        RESULT_KEYS.get(field.name, field.name)
-        for field in fields(Flow)
-        if getattr(previous, field.name) != getattr(flow, field.name)
-    )
-    return {key: earlier[key] for key in changed_keys}
 
 
 TOOLS = (
