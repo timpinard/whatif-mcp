@@ -138,3 +138,29 @@ def test_AC16_borrowing_and_payment_capped_at_amount_owed(today: date) -> None:
         assert row.balances["Checking"] == cents(1000.00)
     assert flow_totals(projection)["Pay"] == cents(300.00)
     assert summary_of(projection, "Loan").reaches_zero == date(2026, 12, 1)
+
+
+def test_AC17_asset_growth_is_effective_annual_and_none_at_or_below_zero(today: date) -> None:
+    model = Model(
+        accounts=(
+            asset("Savings", 1000, growth_rate=0.07),
+            asset("Overdrawn", -500, growth_rate=0.12),
+            asset("Empty", 0, growth_rate=0.12),
+        )
+    )
+
+    monthly = project_years(model, today, 1, Granularity.MONTHLY)
+
+    assert balance_at(monthly, "2026-10", "Savings") == cents(1000.00)
+    assert balance_at(monthly, "2026-11", "Savings") == cents(1005.65)  # 1000 x 1.07^(1/12)
+    assert balance_at(monthly, "2026-12", "Savings") == cents(1011.34)  # 1000 x 1.07^(2/12)
+    assert monthly.periods[-1].balances["Savings"] == cents(1070.00)  # 1000 x 1.07
+    assert summary_of(monthly, "Savings").growth_total == cents(70.00)
+    annual = project_years(model, today, 2)
+    assert annual.periods[-1].balances["Savings"] == cents(1144.90)  # 1000 x 1.07^2
+    for projection in (monthly, annual):
+        for row in projection.periods:
+            assert row.balances["Overdrawn"] == cents(-500.00)
+            assert row.balances["Empty"] == cents(0.00)
+        assert summary_of(projection, "Overdrawn").growth_total == cents(0.00)
+        assert summary_of(projection, "Empty").growth_total == cents(0.00)

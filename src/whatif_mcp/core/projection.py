@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from whatif_mcp.core.model import AccountKind, Flow, Model
+from whatif_mcp.core.model import Account, AccountKind, Flow, Model
 from whatif_mcp.core.recurrence import occurrence_dates
 
 MONTHS_PER_QUARTER = 3
+MONTHS_PER_YEAR = 12
 LAST_MONTH = 12
+GROWTH_DAY = 1
 
 
 class Granularity(StrEnum):
@@ -56,6 +58,14 @@ def horizon_end_date(today: date, years: int) -> date:
     return date(year, today.month, min(today.day, calendar.monthrange(year, today.month)[1]))
 
 
+def monthly_growth(account: Account, balance: float) -> float:
+    if balance <= 0:
+        return 0.0
+    if account.kind is AccountKind.ASSET:
+        return balance * ((1 + account.growth_rate) ** (1 / MONTHS_PER_YEAR) - 1)
+    return balance * account.growth_rate / MONTHS_PER_YEAR
+
+
 def project(model: Model, today: date, horizon_end: date, granularity: Granularity) -> Projection:
     simulation = _Simulation(model, today, horizon_end)
     periods = []
@@ -96,6 +106,8 @@ class _Simulation:
         ):
             event_date = self._event_dates[self._next_event]
             balances_before = dict(self.balances)
+            if event_date.day == GROWTH_DAY:
+                self._grow()
             for flow in self._events[event_date]:
                 self._apply(flow)
             self._record_reaches_zero(event_date, balances_before)
@@ -107,6 +119,12 @@ class _Simulation:
             for name, balance in self.balances.items()
         )
         return PeriodRow(label, end_date, dict(self.balances), net_worth)
+
+    def _grow(self) -> None:
+        for account in self._model.accounts:
+            growth = monthly_growth(account, self.balances[account.name])
+            self.balances[account.name] += growth
+            self.growth_totals[account.name] += growth
 
     def _apply(self, flow: Flow) -> None:
         amount = flow.amount or 0.0
@@ -131,13 +149,31 @@ class _Simulation:
 
 
 def _scheduled_flows(model: Model, today: date, horizon_end: date) -> dict[date, list[Flow]]:
-    events: dict[date, list[Flow]] = {}
+    events: dict[date, list[Flow]] = {
+        growth_date: [] for growth_date in _growth_dates(today, horizon_end)
+    }
     for flow in model.flows:
         end = horizon_end if flow.end_date is None else min(flow.end_date, horizon_end)
         for occurrence in occurrence_dates(flow.start_date, flow.frequency, end):
             if occurrence > today:
                 events.setdefault(occurrence, []).append(flow)
     return events
+
+
+def _growth_dates(today: date, horizon_end: date) -> Iterator[date]:
+    first_after_today = date(today.year, today.month, GROWTH_DAY)
+    if first_after_today <= today:
+        first_after_today = _next_month_start(first_after_today)
+    growth_date = first_after_today
+    while growth_date <= horizon_end:
+        yield growth_date
+        growth_date = _next_month_start(growth_date)
+
+
+def _next_month_start(month_start: date) -> date:
+    if month_start.month == LAST_MONTH:
+        return date(month_start.year + 1, 1, GROWTH_DAY)
+    return date(month_start.year, month_start.month + 1, GROWTH_DAY)
 
 
 def _periods(today: date, horizon_end: date, granularity: Granularity) -> Iterator[tuple[str, date]]:
