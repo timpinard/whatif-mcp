@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ import pytest
 from mcp import Client
 from mcp.types import CallToolResult, TextContent
 
-from whatif_mcp.core.model import Account, AccountKind, Model
+from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 
 
 async def succeed(client: Client, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -159,3 +160,36 @@ async def test_AC6_set_account_allows_rate_bounds(client: Client, model_w_file: 
 
     assert (created["account"]["growth_rate"], created["account"]["volatility"]) == (1, 1)
     assert (updated["account"]["growth_rate"], updated["account"]["volatility"]) == (-0.99, 0)
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC7_remove_account_refused_while_referenced(
+    client: Client, write_model_file: Callable[[Model], Path], model_w: Model, today: date
+) -> None:
+    dividend = Flow(
+        "Dividend", None, "Checking", None, 0.02, "Brokerage", Frequency.QUARTERLY, today
+    )
+    write_model_file(
+        replace(
+            model_w,
+            accounts=(
+                *model_w.accounts,
+                Account("Old", AccountKind.ASSET, 0.0, today),
+                Account("Brokerage", AccountKind.ASSET, 1000.0, today),
+            ),
+            flows=(*model_w.flows, dividend),
+        )
+    )
+
+    removed = await succeed(client, "remove_account", {"name": "old"})
+
+    assert removed["removed"]["name"] == "Old"
+    assert "Car payment" in await fail(client, "remove_account", {"name": "Car loan"})
+    assert "Dividend" in await fail(client, "remove_account", {"name": "Brokerage"})
+    assert [account["name"] for account in await shown_accounts(client)] == [
+        "Checking",
+        "Savings",
+        "Car loan",
+        "Brokerage",
+    ]
