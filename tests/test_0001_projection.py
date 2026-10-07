@@ -164,3 +164,21 @@ def test_AC17_asset_growth_is_effective_annual_and_none_at_or_below_zero(today: 
             assert row.balances["Empty"] == cents(0.00)
         assert summary_of(projection, "Overdrawn").growth_total == cents(0.00)
         assert summary_of(projection, "Empty").growth_total == cents(0.00)
+
+
+def test_AC18_liability_interest_is_apr_monthly_before_flows(today: date, model_w: Model) -> None:
+    projection = project_years(model_w, today, 1, Granularity.MONTHLY)
+
+    assert balance_at(projection, "2026-10", "Car loan") == cents(10000.00)
+    assert balance_at(projection, "2026-11", "Car loan") == cents(9550.00)  # 10000 + 50 - 500
+    assert balance_at(projection, "2026-12", "Car loan") == cents(9097.75)  # 9550 + 47.75 - 500
+    assert projection.periods[-1].balances["Car loan"] == cents(4449.00)
+    assert summary_of(projection, "Car loan").growth_total == cents(449.00)
+
+    cards = Model(
+        accounts=(liability("Card", 1200, growth_rate=0.12), liability("Paid off", 0, 0.2))
+    )
+    cards_projection = project_years(cards, today, 1)
+    assert summary_of(cards_projection, "Card").end_balance == cents(1352.19)  # 1200 x 1.01^12
+    assert summary_of(cards_projection, "Paid off").end_balance == cents(0.00)
+    assert summary_of(cards_projection, "Paid off").growth_total == cents(0.00)
