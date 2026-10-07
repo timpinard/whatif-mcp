@@ -43,7 +43,9 @@ def model_w(today: date) -> Model:
             Account("Car loan", AccountKind.LIABILITY, 10000.0, today, growth_rate=0.06),
         ),
         flows=(
-            Flow("Salary", None, "Checking", 4000.0, None, None, Frequency.MONTHLY, date(2026, 11, 1)),
+            Flow(
+                "Salary", None, "Checking", 4000.0, None, None, Frequency.MONTHLY, date(2026, 11, 1)
+            ),
             Flow(
                 "Car payment",
                 "Checking",

@@ -1,4 +1,5 @@
 import calendar
+import math
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -73,12 +74,12 @@ def monthly_growth(account: Account, balance: float) -> float:
     if balance <= 0:
         return 0.0
     if account.kind is AccountKind.ASSET:
-        return balance * ((1 + account.growth_rate) ** (1 / MONTHS_PER_YEAR) - 1)
+        return balance * (math.pow(1 + account.growth_rate, 1 / MONTHS_PER_YEAR) - 1)
     return balance * account.growth_rate / MONTHS_PER_YEAR
 
 
 def project(model: Model, today: date, horizon_end: date, granularity: Granularity) -> Projection:
-    simulation = _Simulation(model, today, horizon_end)
+    simulation = Simulation(model, today, horizon_end)
     periods = []
     for label, period_end in _periods(today, horizon_end, granularity):
         simulation.run_through(period_end)
@@ -98,7 +99,7 @@ def project(model: Model, today: date, horizon_end: date, granularity: Granulari
     return Projection(today, horizon_end, granularity, tuple(periods), accounts, flows)
 
 
-class _Simulation:
+class Simulation:
     def __init__(self, model: Model, today: date, horizon_end: date) -> None:
         self._model = model
         self._kinds = {account.name: account.kind for account in model.accounts}
@@ -179,10 +180,7 @@ def _scheduled_flows(model: Model, today: date, horizon_end: date) -> dict[date,
 
 
 def _growth_dates(today: date, horizon_end: date) -> Iterator[date]:
-    first_after_today = date(today.year, today.month, GROWTH_DAY)
-    if first_after_today <= today:
-        first_after_today = _next_month_start(first_after_today)
-    growth_date = first_after_today
+    growth_date = _next_month_start(date(today.year, today.month, GROWTH_DAY))
     while growth_date <= horizon_end:
         yield growth_date
         growth_date = _next_month_start(growth_date)
@@ -194,7 +192,9 @@ def _next_month_start(month_start: date) -> date:
     return date(month_start.year, month_start.month + 1, GROWTH_DAY)
 
 
-def _periods(today: date, horizon_end: date, granularity: Granularity) -> Iterator[tuple[str, date]]:
+def _periods(
+    today: date, horizon_end: date, granularity: Granularity
+) -> Iterator[tuple[str, date]]:
     year, month = today.year, today.month
     while True:
         label, last_month = _period_containing(year, month, granularity)
