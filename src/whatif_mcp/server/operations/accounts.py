@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Model
-from whatif_mcp.core.rules import check_account
+from whatif_mcp.core.validation import check_account
 from whatif_mcp.server.operations.arguments import (
     ArgumentError,
     optional_choice,

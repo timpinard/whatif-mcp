@@ -1,9 +1,9 @@
-import math
 from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any
 
-from whatif_mcp.core.errors import WhatIfError
+from whatif_mcp.core.errors import ValidationError, WhatIfError
+from whatif_mcp.core.validation import finite_number
 
 
 class ArgumentError(WhatIfError):
@@ -25,16 +25,10 @@ def optional_text(arguments: Mapping[str, Any], key: str) -> str | None:
 def optional_number(arguments: Mapping[str, Any], key: str) -> float | None:
     if key not in arguments:
         return None
-    value = arguments[key]
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise ArgumentError(f"{key} must be a number, not {value!r}.")
     try:
-        number = float(value)
-    except OverflowError as error:
-        raise ArgumentError(f"{key} is too large to be a number.") from error
-    if not math.isfinite(number):
-        raise ArgumentError(f"{key} must be a finite number.")
-    return number
+        return finite_number(arguments[key])
+    except ValidationError as error:
+        raise ArgumentError(f"{key} {error}.") from error
 
 
 def optional_choice[ChoiceT: StrEnum](

@@ -2,5 +2,5 @@ class WhatIfError(Exception):
     pass
 
 
-class RuleError(WhatIfError):
+class ValidationError(WhatIfError):
     pass

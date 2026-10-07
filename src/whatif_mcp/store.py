@@ -1,5 +1,4 @@
 import json
-import math
 import os
 import tempfile
 from collections.abc import Callable, Mapping
@@ -7,9 +6,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from whatif_mcp.core.errors import RuleError, WhatIfError
+from whatif_mcp.core.errors import ValidationError, WhatIfError
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
-from whatif_mcp.core.rules import check_account
+from whatif_mcp.core.validation import check_account, finite_number
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
@@ -171,7 +170,7 @@ def _account_from_document(entry: Mapping[str, Any]) -> Account:
     )
     try:
         check_account(account)
-    except RuleError as error:
+    except ValidationError as error:
         raise _ShapeProblem(f'account "{account.name}": {str(error).rstrip(".")}') from error
     return account
 
@@ -215,16 +214,10 @@ def _object(value: Any, container: str) -> Mapping[str, Any]:
 
 
 def _number(entry: Mapping[str, Any], key: str) -> float:
-    value = _field(entry, key)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise _ShapeProblem(f'"{key}" is not a number')
     try:
-        number = float(value)
-    except OverflowError as error:
-        raise _ShapeProblem(f'"{key}" is too large to be a number') from error
-    if not math.isfinite(number):
-        raise _ShapeProblem(f'"{key}" is {json.dumps(number)}, not a finite number')
-    return number
+        return finite_number(_field(entry, key))
+    except ValidationError as error:
+        raise _ShapeProblem(f'"{key}" {error}') from error
 
 
 def _text(entry: Mapping[str, Any], key: str) -> str:
