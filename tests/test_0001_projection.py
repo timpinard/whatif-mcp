@@ -207,3 +207,23 @@ def test_AC15_rate_flow_uses_balance_at_occurrence(today: date) -> None:
     for row in negative_projection.periods:
         assert row.balances["Brokerage"] == cents(-50.00)
         assert row.balances["Checking"] == cents(0.00)
+
+
+def test_AC19_same_day_flows_apply_in_model_order(today: date) -> None:
+    spend = fixed_flow("Spend", 500, Frequency.MONTHLY, date(2026, 11, 1), source="Checking")
+    sweep = rate_flow(
+        "Sweep",
+        0.12,
+        "Checking",
+        Frequency.MONTHLY,
+        date(2026, 11, 1),
+        source="Checking",
+        target="Savings",
+    )
+    accounts = (asset("Checking", 1000), asset("Savings", 0))
+
+    spend_first = project_years(Model(accounts, (spend, sweep)), today, 1, Granularity.MONTHLY)
+    sweep_first = project_years(Model(accounts, (sweep, spend)), today, 1, Granularity.MONTHLY)
+
+    assert balance_at(spend_first, "2026-11", "Savings") == cents(5.00)  # 500 x 0.12 / 12
+    assert balance_at(sweep_first, "2026-11", "Savings") == cents(10.00)  # 1000 x 0.12 / 12
