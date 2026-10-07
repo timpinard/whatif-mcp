@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import date
 from enum import StrEnum
 from typing import Any
 
@@ -57,6 +58,16 @@ def optional_choice[ChoiceT: StrEnum](
     if not isinstance(value, str) or value not in set(choices):
         raise ArgumentError(f"{key} must be one of {allowed}, not {value!r}.")
     return choices(value)
+
+
+def optional_date(arguments: Mapping[str, Any], key: str) -> date | None:
+    text = optional_text(arguments, key)
+    if text is None:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError as error:
+        raise ArgumentError(f"{key} must be a YYYY-MM-DD date, not {text!r}.") from error
 
 
 def _text(arguments: Mapping[str, Any], key: str) -> str:
