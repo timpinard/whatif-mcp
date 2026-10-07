@@ -3,3 +3,4 @@ date,spec_id,task_id,first_pass,regenerations,review_findings_agent,review_findi
 2026-10-07,0001,T2,yes,0,16,0,,0.2
 2026-10-07,0001,T3,no,2,30,0,,0.5
 2026-10-07,0001,T4,no,1,27,0,,0.4
+2026-10-07,0001,T5,no,1,17,0,,0.3
