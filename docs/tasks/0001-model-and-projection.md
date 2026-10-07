@@ -6,7 +6,7 @@ of non-test code per task.
 
 | ID | Task | Covers AC | Depends on | Status |
 |----|------|-----------|------------|--------|
-| T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | todo |
+| T1 | Skeleton, dev environment, core types, recurrence, MCP test harness | AC12, AC13 | - | done |
 | T2 | Core projection: growth, flows, caps, period rows, summary, totals | AC14, AC15, AC16, AC17, AC18, AC19, AC20, AC21 | T1 | todo |
 | T3 | Store and `show_model` | AC3, AC11 | T1 | todo |
 | T4 | Name resolution, `set_account`, `remove_account` | AC4, AC5, AC6, AC7 | T3 | todo |
