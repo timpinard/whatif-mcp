@@ -1,6 +1,6 @@
 # Plan 0001: Model and projection
 - Spec: Spec 0001 (docs/specs/0001-model-and-projection.md)
-- Status: approved
+- Status: approved; T2-T7 to be re-planned as slices under sdd-kit 0.2.0
 - Approved by: Timothy Pinard, 2026-10-06
 
 ## Approach
@@ -155,4 +155,4 @@ Levels are as the spec states; files are split by task so no two tasks edit the 
 ## Rollout and rollback
 Local only: no remote, no deploy. Each task is a branch `task/0001-Tn-short-name` merged to main
 after the human merge gate; rollback is reverting that merge. Spec 0001 status moves to
-implemented after T7 merges (owner, per docs/definition-of-done.md).
+implemented after T7 merges (owner, per the sdd-kit build skill).

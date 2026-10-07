@@ -7,33 +7,28 @@ balances forward and compares a baseline against hypothetical changes. It runs l
 stdio, keeps the model in a JSON file the user owns, and has no network or database dependency.
 The projection behavior is ported from an existing engine (ADR 0004).
 
-## Context docs (read before any task)
-- docs/context/architecture.md
-- docs/context/conventions.md
-- docs/context/glossary.md
+## Process
+Spec-driven, with the sdd-kit plugin (version in `.sdd-kit`). Stages: epic -> spec -> plan -> build
+-> merge, each started with its skill (`/sdd-kit:epic`, `/sdd-kit:spec`, `/sdd-kit:plan`,
+`/sdd-kit:build`). Human gates: accept ADRs, approve epic, approve spec, approve plan, merge.
+
+## Read before any task
+- docs/context/architecture.md, docs/context/conventions.md, docs/context/glossary.md
 - docs/adr/ (accepted ADRs are binding)
 
 ## Commands
 - Setup: `uv sync` (ADR 0005)
-- Gates (run all, in order): `scripts/gates.sh [docs/specs/NNNN-name.md]`
+- Gates: `scripts/gates.sh [docs/specs/NNNN-name.md [AC ids...]]`
 - Lint: `uv run --locked ruff format --check .` then `uv run --locked ruff check .`
 - Typecheck: `uv run --locked mypy src`
 - Unit tests: `uv run --locked pytest -m "not integration"`
 - Integration tests: `uv run --locked pytest -m integration`
 
 ## Rules
-1. Work from a spec in docs/specs/. No spec, no code. Ask.
-2. Do not change a spec to fit the code. Flag the conflict.
-3. Run `scripts/gates.sh` before saying "done". Show the output.
-4. One task = one PR. Keep diffs reviewable.
-5. If an ADR blocks the approach, stop and report. Do not override.
-6. Log regeneration count in the PR description.
-7. Refer to docs by ID ("ADR NNNN", "Spec NNNN"), not by path. Only ADRs name external systems,
-   repos, files or versions; everything else refers to the ADR. Accepted ADRs are never edited,
-   only superseded, so a stale name in one is history, not rot.
-8. Problems with the process itself (agents, templates, gates) go in docs/kit-feedback.md, not
-   into the kit and not silently worked around.
-
-## Non-goals for agents
-- No dependency additions without an ADR.
-- No schema migrations without explicit task.
+1. No spec, no code. Ask.
+2. A spec is changed only by its owner. Code that disagrees with a spec is flagged, not reconciled.
+3. "Done" means `scripts/gates.sh` green, with the output shown.
+4. An ADR that blocks the approach stops the work; report it.
+5. Refer to docs by ID; only ADRs name external systems (skill `domain-docs`).
+6. Every runtime or dev dependency needs an ADR first.
+7. Problems with the process itself go in docs/kit-feedback.md.

@@ -7,6 +7,12 @@ prose, anti-pattern list). This file adds what is specific to this repo.
 - Dataclasses (frozen where possible) for domain types; no untyped dicts across module boundaries.
 - Money is `float`, rounded to cents only when shaped for output.
 
+## Numbers and precision
+- Money is `float` internally and never rounded between steps.
+- Output money is rounded to cents, half up, on the unrounded value (Spec 0001, Interfaces).
+- Derived values (differences, totals) are computed before rounding, not from rounded figures.
+- Tests compare money to the cent.
+
 ## Naming
 - Domain terms come from docs/context/glossary.md. Do not invent synonyms in code.
 - MCP tool names are snake_case verbs: `set_account`, `project`, `what_if`.
@@ -17,7 +23,9 @@ prose, anti-pattern list). This file adds what is specific to this repo.
   which tool or argument fixes it.
 - An ambiguous or unknown name is an error listing the candidates; never guess.
 
-## Testing (what gets unit vs integration; naming: test_<AC-id>_<behavior> in tests/test_<spec-NNNN>_*.py)
+## Testing (naming: test_<AC-id>_<behavior> in tests/test_<spec-NNNN>_*.py)
+- Seams: core functions (unit), the store against a temp file (unit), MCP tools through an
+  in-process client session (integration). Each plan names the seam per AC.
 - Unit: core and store, called directly. Fixed "today" in every test.
 - Integration (`@pytest.mark.integration`): the server driven through an in-process MCP client
   session, against a model file in a temp directory.
