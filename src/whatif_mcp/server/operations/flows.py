@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import date
+from enum import Enum
 from typing import Any
 
 from whatif_mcp.core.model import Flow, Frequency, Model
@@ -10,6 +11,7 @@ from whatif_mcp.server.operations.arguments import (
     optional_choice,
     optional_date,
     optional_number,
+    optional_text,
     required_text,
 )
 from whatif_mcp.server.operations.names import (
@@ -20,8 +22,12 @@ from whatif_mcp.server.operations.names import (
     resolve_named,
 )
 
-ACCOUNT_ARGUMENTS = {"from": "from_account", "to": "to_account", "rate_of": "rate_of"}
-NULLABLE_ACCOUNT_ARGUMENTS = ("from", "to")
+
+class Omitted(Enum):
+    OMITTED = "omitted"
+
+
+OMITTED = Omitted.OMITTED
 
 
 @dataclass(frozen=True)
@@ -38,19 +44,41 @@ class FlowRemoval:
     flow: Flow
 
 
+@dataclass(frozen=True)
+class _FlowArguments:
+    name: str
+    from_account: str | None | Omitted
+    to_account: str | None | Omitted
+    amount: float | None
+    rate: float | None
+    rate_of: str | None
+    frequency: Frequency | None
+    start_date: date | None
+    end_date: date | None | Omitted
+    new_name: str | None
+
+    @property
+    def is_schedule_given(self) -> bool:
+        return self.frequency is not None or self.start_date is not None
+
+
 def set_flow(model: Model, arguments: Mapping[str, Any], today: date) -> FlowEdit:
-    name = clean_name("name", required_text(arguments, "name"))
-    existing = find_named(model.flows, name)
-    updates = {**_account_updates(model, arguments), **_size_updates(arguments)}
-    updates |= _schedule_updates(arguments)
+    given = _parse(model, arguments)
+    existing = find_named(model.flows, given.name)
     if existing is None:
-        flow = replace(_new_flow(model, name, arguments, updates, today), **updates)
+        if given.new_name is not None:
+            raise ArgumentError(
+                f'new_name renames an existing flow, and "{given.name}" does not exist. '
+                "To create a flow, give its name as name."
+            )
+        flow = _applied(_new_flow(model, given, today), given)
     else:
-        flow = replace(existing, **updates)
-        if "new_name" in arguments:
-            flow = replace(flow, name=_free_name(model, existing, arguments))
+        flow = _applied(existing, given)
+        if given.new_name is not None:
+            _check_free_name(model, existing, given.new_name)
+            flow = replace(flow, name=given.new_name)
     check_flow(flow)
-    if "start_date" in arguments or "frequency" in arguments:
+    if given.is_schedule_given:
         check_fires(flow, today)
     changed = _with_flow(model, existing, flow)
     return FlowEdit(changed, flow, existing, _similar_flows(changed, flow))
@@ -63,69 +91,98 @@ def remove_flow(model: Model, arguments: Mapping[str, Any]) -> FlowRemoval:
     return FlowRemoval(replace(model, flows=remaining), flow)
 
 
-def _account_updates(model: Model, arguments: Mapping[str, Any]) -> dict[str, Any]:
-    updates: dict[str, Any] = {}
-    for argument, field_name in ACCOUNT_ARGUMENTS.items():
-        if argument not in arguments:
-            continue
-        if arguments[argument] is None and argument in NULLABLE_ACCOUNT_ARGUMENTS:
-            updates[field_name] = None
-            continue
-        account_name = clean_name(argument, required_text(arguments, argument))
-        updates[field_name] = resolve_named("account", model.accounts, account_name, argument).name
-    return updates
+def _parse(model: Model, arguments: Mapping[str, Any]) -> _FlowArguments:
+    name = clean_name("name", required_text(arguments, "name"))
+    new_name = optional_text(arguments, "new_name")
+    rate_of = _account(model, arguments, "rate_of")
+    return _FlowArguments(
+        name=name,
+        from_account=_side(model, arguments, "from"),
+        to_account=_side(model, arguments, "to"),
+        amount=optional_number(arguments, "amount"),
+        rate=optional_number(arguments, "rate"),
+        rate_of=None if rate_of is OMITTED else rate_of,
+        frequency=optional_choice(arguments, "frequency", Frequency),
+        start_date=optional_date(arguments, "start_date"),
+        end_date=_end_date(arguments),
+        new_name=None if new_name is None else clean_name("new_name", new_name),
+    )
 
 
-def _size_updates(arguments: Mapping[str, Any]) -> dict[str, Any]:
-    updates: dict[str, Any] = {}
-    if "amount" in arguments:
-        updates["amount"] = optional_number(arguments, "amount")
-        if "rate" not in arguments:
-            updates |= {"rate": None, "rate_of": None}
-    if "rate" in arguments:
-        updates["rate"] = optional_number(arguments, "rate")
-        if "amount" not in arguments:
-            updates["amount"] = None
-    return updates
+def _side(model: Model, arguments: Mapping[str, Any], key: str) -> str | None | Omitted:
+    if key in arguments and arguments[key] is None:
+        return None
+    return _account(model, arguments, key)
 
 
-def _schedule_updates(arguments: Mapping[str, Any]) -> dict[str, Any]:
-    updates: dict[str, Any] = {}
-    if "frequency" in arguments:
-        updates["frequency"] = optional_choice(arguments, "frequency", Frequency)
-    if "start_date" in arguments:
-        updates["start_date"] = optional_date(arguments, "start_date")
-    if "end_date" in arguments:
-        is_cleared = arguments["end_date"] is None
-        updates["end_date"] = None if is_cleared else optional_date(arguments, "end_date")
-    return updates
+def _account(model: Model, arguments: Mapping[str, Any], key: str) -> str | Omitted:
+    text = optional_text(arguments, key)
+    if text is None:
+        return OMITTED
+    return resolve_named("account", model.accounts, clean_name(key, text), key).name
 
 
-def _new_flow(
-    model: Model, name: str, arguments: Mapping[str, Any], updates: Mapping[str, Any], today: date
-) -> Flow:
-    if "frequency" not in updates:
+def _end_date(arguments: Mapping[str, Any]) -> date | None | Omitted:
+    if "end_date" not in arguments:
+        return OMITTED
+    if arguments["end_date"] is None:
+        return None
+    return optional_date(arguments, "end_date")
+
+
+def _new_flow(model: Model, given: _FlowArguments, today: date) -> Flow:
+    if given.frequency is None:
         raise UnknownNameError(
-            f'name: the flow "{name}" does not exist. Flow names: {name_list(model.flows)}. '
-            "Give frequency and an amount, or a rate with rate_of, to create a new flow."
+            f'name: the flow "{given.name}" does not exist. Flow names: '
+            f"{name_list(model.flows)}. Give frequency and an amount, or a rate with rate_of, "
+            "to create a new flow."
         )
-    if "new_name" in arguments:
-        raise ArgumentError(
-            f'new_name renames an existing flow, and "{name}" does not exist. '
-            "To create a flow, give its name as name."
-        )
-    return Flow(name, None, None, None, None, None, updates["frequency"], today)
+    return Flow(
+        name=given.name,
+        from_account=None,
+        to_account=None,
+        amount=None,
+        rate=None,
+        rate_of=None,
+        frequency=given.frequency,
+        start_date=today,
+    )
 
 
-def _free_name(model: Model, existing: Flow, arguments: Mapping[str, Any]) -> str:
-    new_name = clean_name("new_name", required_text(arguments, "new_name"))
+def _applied(flow: Flow, given: _FlowArguments) -> Flow:
+    amount, rate, rate_of = _size(flow, given)
+    return replace(
+        flow,
+        from_account=_kept(flow.from_account, given.from_account),
+        to_account=_kept(flow.to_account, given.to_account),
+        amount=amount,
+        rate=rate,
+        rate_of=rate_of,
+        frequency=given.frequency or flow.frequency,
+        start_date=given.start_date or flow.start_date,
+        end_date=_kept(flow.end_date, given.end_date),
+    )
+
+
+def _size(flow: Flow, given: _FlowArguments) -> tuple[float | None, float | None, str | None]:
+    if given.amount is None and given.rate is None:
+        return flow.amount, flow.rate, given.rate_of or flow.rate_of
+    if given.rate is None:
+        return given.amount, None, given.rate_of
+    return given.amount, given.rate, given.rate_of or flow.rate_of
+
+
+def _kept[ValueT](current: ValueT, given: ValueT | Omitted) -> ValueT:
+    return current if isinstance(given, Omitted) else given
+
+
+def _check_free_name(model: Model, existing: Flow, new_name: str) -> None:
     holder = find_named(model.flows, new_name)
     if holder is not None and holder.name != existing.name:
         raise ArgumentError(
             f'new_name: a flow named "{holder.name}" already exists (names ignore case). '
             "Choose another name."
         )
-    return new_name
 
 
 def _with_flow(model: Model, existing: Flow | None, flow: Flow) -> Model:

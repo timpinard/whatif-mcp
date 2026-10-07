@@ -271,3 +271,23 @@ async def test_R4_never_fires_check_only_when_start_date_or_frequency_given(
     assert message.split()[0] == "start_date"
     assert "never fire" in message
     assert path.read_bytes() == file_bytes
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {**FIXED_FROM_CHECKING, "rate_of": "Savings"},
+        {"name": "Car payment", "amount": 600, "rate_of": "Savings"},
+    ],
+)
+async def test_R4_amount_with_rate_of_but_no_rate_is_refused_naming_rate(
+    client: Client, model_w_file: Path, arguments: dict[str, Any]
+) -> None:
+    file_bytes = model_w_file.read_bytes()
+
+    message = await fail(client, "set_flow", arguments)
+
+    assert message.split()[0] == "rate"
+    assert model_w_file.read_bytes() == file_bytes
