@@ -4,8 +4,8 @@
 - Deciders: Timothy Pinard
 
 ## Context
-The source engine is the source project's `engine/evaluator.py` and `engine/function_registry.py`, as of
-the source project commit c03c1e2. It does recurrence dates, period bucketing, flow evaluation,
+The source engine is the projection engine of a separate, private project of the author's (its
+evaluator and function registry, at a fixed commit recorded privately). It does recurrence dates, period bucketing, flow evaluation,
 double-entry application, Monte Carlo bands, what-if and solve-for. It reads inputs from and writes
 results to Postgres, and its what-if works by writing a temporary plan and rolling it back. It also
 has defects found while specifying this project (month-end drift, semimonthly skips, payments past
