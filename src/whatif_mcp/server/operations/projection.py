@@ -1,10 +1,11 @@
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
-from whatif_mcp.core.projection import Granularity
+from whatif_mcp.core.projection import Granularity, Projection, money_values
 from whatif_mcp.server.operations.arguments import (
     ArgumentError,
     optional_boolean,
@@ -17,9 +18,14 @@ DEFAULT_GRANULARITY = Granularity.ANNUAL
 MIN_HORIZON_YEARS = 1
 MAX_HORIZON_YEARS = 50
 MAX_MONTHLY_HORIZON_YEARS = 10
+MAX_REPORTED_MONEY = 1_000_000_000_000_000
 
 
 class EmptyModelError(WhatIfError):
+    pass
+
+
+class UnreportableProjectionError(WhatIfError):
     pass
 
 
@@ -47,6 +53,19 @@ def check_has_accounts(model: Model) -> None:
         raise EmptyModelError(
             "The model has no accounts to project. Add one with set_account first."
         )
+
+
+def check_reportable(projection: Projection) -> None:
+    if all(
+        math.isfinite(value) and abs(value) < MAX_REPORTED_MONEY
+        for value in money_values(projection)
+    ):
+        return
+    raise UnreportableProjectionError(
+        f"The projection reaches money values of {MAX_REPORTED_MONEY:,} or more, or values too "
+        "large to compute. Reduce horizon_years, or the growth_rate of the accounts that grow "
+        "fastest, or the inflation rate (set_inflation_rate) when in_todays_money is true."
+    )
 
 
 def _horizon_years(arguments: Mapping[str, Any]) -> int:

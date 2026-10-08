@@ -65,6 +65,16 @@ class Projection:
     flows: tuple[FlowTotal, ...]
 
 
+def money_values(projection: Projection) -> Iterator[float]:
+    for row in projection.periods:
+        yield row.net_worth
+        yield from row.balances.values()
+    for summary in projection.accounts:
+        yield from (summary.start_balance, summary.end_balance, summary.growth_total)
+    for total in projection.flows:
+        yield total.total
+
+
 def horizon_end_date(today: date, years: int) -> date:
     year = today.year + years
     return date(year, today.month, min(today.day, calendar.monthrange(year, today.month)[1]))

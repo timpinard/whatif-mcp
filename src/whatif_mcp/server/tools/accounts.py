@@ -46,7 +46,20 @@ REMOVE_ACCOUNT_SCHEMA: dict[str, Any] = {
 def set_account(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
     edit = operations.set_account(load_model(path), call.arguments, call.today)
+    result = _shape_account_edit(edit)
     write_model_file(path, edit.model)
+    return result
+
+
+def remove_account(call: ToolCall) -> dict[str, Any]:
+    path = resolve_model_path()
+    removal = operations.remove_account(load_model(path), call.arguments)
+    result = {"removed": shape_account(removal.account)}
+    write_model_file(path, removal.model)
+    return result
+
+
+def _shape_account_edit(edit: operations.AccountEdit) -> dict[str, Any]:
     account = shape_account(edit.account)
     if edit.previous is None:
         return {"created": True, "account": account}
@@ -57,13 +70,6 @@ def set_account(call: ToolCall) -> dict[str, Any]:
         if getattr(edit.previous, field.name) != getattr(edit.account, field.name)
     }
     return {"created": False, "account": account, "previous": previous}
-
-
-def remove_account(call: ToolCall) -> dict[str, Any]:
-    path = resolve_model_path()
-    removal = operations.remove_account(load_model(path), call.arguments)
-    write_model_file(path, removal.model)
-    return {"removed": shape_account(removal.account)}
 
 
 TOOLS = (

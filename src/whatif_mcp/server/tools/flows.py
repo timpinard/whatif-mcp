@@ -53,19 +53,20 @@ REMOVE_FLOW_SCHEMA: dict[str, Any] = {
 def set_flow(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
     edit = operations.set_flow(load_model(path), call.arguments, call.today)
-    write_model_file(path, edit.model)
     result: dict[str, Any] = {"created": edit.previous is None, "flow": shape_flow(edit.flow)}
     if edit.previous is not None:
         result["previous"] = shape_flow_changes(edit.previous, edit.flow)
     result["similar_flows"] = list(edit.similar_flows)
+    write_model_file(path, edit.model)
     return result
 
 
 def remove_flow(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
     removal = operations.remove_flow(load_model(path), call.arguments)
+    result = {"removed": shape_flow(removal.flow)}
     write_model_file(path, removal.model)
-    return {"removed": shape_flow(removal.flow)}
+    return result
 
 
 TOOLS = (

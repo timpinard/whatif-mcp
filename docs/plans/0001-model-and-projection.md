@@ -122,6 +122,9 @@ order is the order flows were first added.
   every write tool loads through the same guarded path as `set_account`, so an unreadable file is
   never overwritten.
 - T2 and T3 both add builders to `tests/conftest.py`; the second to merge rebases it.
+- Today's-money deflation returns infinity for any value when the factor underflows to zero;
+  every caller must run the too-large check (`check_reportable`) before reporting. The Spec 0002
+  plan decides whether core should raise a typed error instead (Task 0001-T8 review).
 
 ## Spec gaps (flagged for the owner; working assumption in brackets; resolved by amending the spec)
 Resolved by the owner on 2026-10-07 and amended into Spec 0001:

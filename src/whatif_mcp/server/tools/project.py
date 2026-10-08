@@ -12,6 +12,7 @@ from whatif_mcp.server.operations.projection import (
     MAX_MONTHLY_HORIZON_YEARS,
     MIN_HORIZON_YEARS,
     check_has_accounts,
+    check_reportable,
     parse_project_arguments,
 )
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
@@ -71,18 +72,21 @@ def project_model(call: ToolCall) -> dict[str, Any]:
     check_has_accounts(model)
     horizon_end = horizon_end_date(call.today, given.years)
     projection = project(model, call.today, horizon_end, given.granularity)
-    if not given.is_todays_money:
-        return _shape_projection(projection, given.years, {"values": NOMINAL})
-    values = {"values": TODAYS_MONEY, "inflation_rate": model.inflation_rate}
-    return _shape_projection(in_todays_money(projection, model.inflation_rate), given.years, values)
+    values: dict[str, Any] = {"values": NOMINAL}
+    if given.is_todays_money:
+        projection = in_todays_money(projection, model.inflation_rate)
+        values = {"values": TODAYS_MONEY, "inflation_rate": model.inflation_rate}
+    check_reportable(projection)
+    return _shape_projection(projection, given.years, values)
 
 
 def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
     model = load_model(path)
     changed = operations.set_inflation_rate(model, call.arguments)
+    result = {"inflation_rate": changed.inflation_rate, "previous": model.inflation_rate}
     write_model_file(path, changed)
-    return {"inflation_rate": changed.inflation_rate, "previous": model.inflation_rate}
+    return result
 
 
 def _shape_projection(projection: Projection, years: int, values: dict[str, Any]) -> dict[str, Any]:
