@@ -2,6 +2,7 @@ from typing import Any
 
 from mcp import types
 
+from whatif_mcp.core.money import round_money
 from whatif_mcp.core.projection import Granularity, Projection, horizon_end_date, project
 from whatif_mcp.core.todays_money import in_todays_money
 from whatif_mcp.server.operations import inflation as operations
@@ -16,7 +17,6 @@ from whatif_mcp.server.operations.projection import (
     parse_project_arguments,
 )
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
-from whatif_mcp.server.shaping import round_money
 from whatif_mcp.server.tools.writing import write_model_file
 from whatif_mcp.store import load_model, resolve_model_path
 

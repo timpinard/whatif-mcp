@@ -1,15 +1,10 @@
 from dataclasses import fields
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from whatif_mcp.core.model import Account, Flow
+from whatif_mcp.core.money import round_money
 
-CENT = Decimal("0.01")
 FLOW_RESULT_KEYS = {"from_account": "from", "to_account": "to"}
-
-
-def round_money(value: float) -> float:
-    return float(Decimal(repr(value)).quantize(CENT, rounding=ROUND_HALF_UP))
 
 
 def shape_account(account: Account) -> dict[str, Any]:

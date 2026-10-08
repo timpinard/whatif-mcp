@@ -14,6 +14,7 @@ MIN_INFLATION_RATE = -1.0
 MAX_INFLATION_RATE = 1.0
 MAX_FLOW_RATE = 1.0
 MAX_MONEY = 1_000_000_000_000
+EARLIEST_START_DATE = date(1900, 1, 1)
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 DATE_PROBLEM = "is not a YYYY-MM-DD date"
 
@@ -69,6 +70,11 @@ def check_flow(flow: Flow) -> None:
     elif flow.amount > MAX_MONEY:
         raise ValidationError(
             f"amount {flow.amount:,.2f} is out of range: give at most {MAX_MONEY:,}."
+        )
+    if flow.start_date < EARLIEST_START_DATE:
+        raise ValidationError(
+            f"start_date {flow.start_date.isoformat()} is too early: give a start_date on or "
+            f"after {EARLIEST_START_DATE.isoformat()}."
         )
     if flow.end_date is not None and flow.end_date < flow.start_date:
         raise ValidationError(
