@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 from whatif_mcp.core.comparison import EntryMatch
+from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
 from whatif_mcp.server.operations import accounts, flows
 from whatif_mcp.server.shaping import shape_account, shape_flow
@@ -14,8 +15,20 @@ SET_ACCOUNT_OP = "set_account"
 REMOVE_ACCOUNT_OP = "remove_account"
 SET_FLOW_OP = "set_flow"
 REMOVE_FLOW_OP = "remove_flow"
+OPS = (SET_ACCOUNT_OP, REMOVE_ACCOUNT_OP, SET_FLOW_OP, REMOVE_FLOW_OP)
+OPS_LISTED = ", ".join(OPS)
 NAME_KEY = "name"
 MONEY_KEYS = frozenset({"balance", "amount"})
+
+
+class ChangeError(WhatIfError):
+    pass
+
+
+@dataclass(frozen=True)
+class Change:
+    op: str
+    arguments: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -32,13 +45,14 @@ class _AppliedChange:
     description: str
 
 
-def apply_changes(
-    model: Model, changes: Sequence[Mapping[str, Any]], today: date
-) -> AppliedChanges:
+def apply_changes(model: Model, changes: Sequence[Change], today: date) -> AppliedChanges:
     changed = model
     descriptions = []
-    for change in changes:
-        applied = _apply(changed, change, today)
+    for position, change in enumerate(changes, start=1):
+        try:
+            applied = _apply(changed, change, today)
+        except WhatIfError as error:
+            raise change_error(position, error) from error
         changed = applied.model
         descriptions.append(applied.description)
     return AppliedChanges(
@@ -52,6 +66,10 @@ def apply_changes(
     )
 
 
+def change_error(position: int, error: WhatIfError) -> ChangeError:
+    return ChangeError(f"change {position}: {error}")
+
+
 def match_by_name(
     baseline_names: Sequence[str], hypothetical_names: Sequence[str]
 ) -> tuple[EntryMatch, ...]:
@@ -63,9 +81,8 @@ def match_by_name(
     return (*baseline, *new)
 
 
-def _apply(model: Model, change: Mapping[str, Any], today: date) -> _AppliedChange:
-    op = change[OP_KEY]
-    arguments = {key: value for key, value in change.items() if key != OP_KEY}
+def _apply(model: Model, change: Change, today: date) -> _AppliedChange:
+    op, arguments = change.op, change.arguments
     if op == SET_ACCOUNT_OP:
         account_edit = accounts.set_account(model, arguments, today)
         previous = None if account_edit.previous is None else shape_account(account_edit.previous)

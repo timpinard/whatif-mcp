@@ -71,6 +71,13 @@ def check_has_accounts(model: Model) -> None:
         )
 
 
+def check_hypothetical_has_accounts(model: Model) -> None:
+    if not model.accounts:
+        raise EmptyModelError(
+            "The hypothetical model has no accounts to project: the changes remove every account."
+        )
+
+
 def check_reportable(projection: Projection) -> None:
     check_reportable_values(money_values(projection))
 
