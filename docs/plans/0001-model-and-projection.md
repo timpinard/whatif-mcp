@@ -1,10 +1,12 @@
 # Plan 0001: Model and projection
 - Spec: Spec 0001
 - Status: approved
-- Approved by: Timothy Pinard, 2026-10-07
+- Approved by: Timothy Pinard, 2026-10-08
 - Jira:
 - History: first approved 2026-10-06 (Timothy Pinard) as layer tasks under sdd-kit 0.1; Task
-  0001-T1 merged under it. T2 to T7 re-planned as slices under sdd-kit 0.2.2 on 2026-10-07.
+  0001-T1 merged under it. T2 to T7 re-planned as slices under sdd-kit 0.2.2 on 2026-10-07
+  (approved by Timothy Pinard, 2026-10-07) and merged. T8 to T10 added on 2026-10-08 for the
+  amendment after the QA pass (QA 0001 record, AC27 to AC34).
 
 ## Approach
 Task 0001-T1 (merged) built the package, gates, core types, recurrence (AC12, AC13), an empty
@@ -49,6 +51,15 @@ Decisions taken in this re-plan:
 - Money is rounded to cents, half up, in one shaping helper created in T3 and used by every
   tool result.
 
+QA fix tasks (2026-10-08). The QA pass on the implemented spec found two bugs and eight gaps
+(docs/reviews/0001-QA.md); the owner amended Spec 0001 (AC27 to AC34). Three slices:
+- T8 first: money caps (R2, R4), the unreportable-projection error (R14), unreadable files named
+  (R1). It fixes the F1 corruption bug, where a write tool saves and then fails while shaping,
+  and it touches `store.py`, `core/validation.py` and `server/shaping.py`, which T9 and T10 each
+  share with it.
+- Then T9 (store and model path) and T10 (projection, validation, shaping) in parallel; they do
+  not overlap. Whichever merges second runs the full `scripts/gates.sh <spec>`.
+
 ## Seams (where tests observe behavior; agreed with the owner)
 Agreed 2026-10-07 by Timothy Pinard (engineer); QA review of what each seam misses: Timothy
 Pinard.
@@ -61,7 +72,17 @@ Pinard.
 | S4 server as a subprocess over stdio (integration). AC25 | Anything on stdout from our code or the SDK; log content at INFO; the console entry point starts | DEBUG logs (by design). The AC25 test also makes one rejected call (an unknown flow name, whose error lists names), so error-path logging is seen; its assertions stay the AC's |
 
 Not observed by any seam, checked by review (see Risks): today read from the clock once per call;
-"never overwritten when unreadable" for write tools other than `set_account`.
+"never overwritten when unreadable" for write tools other than `set_account` (the QA pass then
+probed all five write tools on 34 malformed files; QA 0001 record).
+
+T8 to T10 (agreed 2026-10-08 by Timothy Pinard, engineer and QA): AC27 to AC34 all at S3; no new
+seam. What S3 misses for them and how it is covered:
+- The mode-000 case of AC28 cannot fail for root: that case is skipped when the tests run as
+  root, with the reason in the skip.
+- R1 cases without an AC (nesting too deep to parse, a file as the parent directory) and R14
+  cases without an AC (today's money blowing up with inflation -0.75 over 50 years, a file near
+  1e308): T8 adds `test_R1_` and `test_R14_` tests for them.
+- No new behavior goes over stdio; S4 is not extended (AC25 covers stdout and stderr hygiene).
 
 ## Components touched
 - `whatif_mcp.core`: projection (T2), today's-money deflation (T5). Existing types and
@@ -125,6 +146,9 @@ Earlier gaps (2026-10-06 amendment) stand as amended.
 | tests/test_0001_project_tool.py | AC1, AC2, AC22, AC23, AC24 | S3 | T5 |
 | tests/test_0001_flows.py | AC8, AC9, AC10 | S3 | T6 |
 | tests/test_0001_stdio.py | AC25 | S4 | T7 |
+| tests/test_0001_limits.py | AC27, AC28 (+ test_R1_, test_R14_ cases) | S3 | T8 |
+| tests/test_0001_model_file.py | AC29, AC30, AC31 | S3 | T9 |
+| tests/test_0001_reporting.py | AC32, AC33, AC34 | S3 | T10 |
 
 Shared fixtures in `tests/conftest.py`: fixed today, temp model path and in-process client
 (T1); Model W in core form (T2); writing a model file through the store, Model W in file form
