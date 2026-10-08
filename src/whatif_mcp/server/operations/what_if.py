@@ -113,7 +113,7 @@ def _op(change: Mapping[str, Any]) -> str:
     if OP_KEY not in change:
         raise ArgumentError(f"{OP_KEY} is required, one of {', '.join(OPS)}.")
     op = change[OP_KEY]
-    if not isinstance(op, str) or op not in OPS:
+    if op not in OPS:
         raise ArgumentError(f"{OP_KEY} must be one of {', '.join(OPS)}, not {op!r}.")
     return op
 
