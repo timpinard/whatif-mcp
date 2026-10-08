@@ -3,6 +3,7 @@ from typing import Any
 
 from whatif_mcp.core.model import Account, Flow
 from whatif_mcp.core.money import round_money
+from whatif_mcp.core.projection import Projection
 
 FLOW_RESULT_KEYS = {"from_account": "from", "to_account": "to"}
 
@@ -40,3 +41,16 @@ def shape_flow_changes(previous: Flow, flow: Flow) -> dict[str, Any]:
         if getattr(previous, field.name) != getattr(flow, field.name)
     )
     return {key: earlier[key] for key in changed_keys}
+
+
+def shape_horizon(projection: Projection, years: int) -> dict[str, Any]:
+    return {
+        "today": projection.today.isoformat(),
+        "horizon": {
+            "years": years,
+            "from": projection.periods[0].label,
+            "to": projection.periods[-1].label,
+            "end_date": projection.horizon_end.isoformat(),
+        },
+        "granularity": projection.granularity.value,
+    }

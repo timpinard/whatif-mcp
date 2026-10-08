@@ -1,5 +1,5 @@
 import math
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,10 +56,11 @@ def check_has_accounts(model: Model) -> None:
 
 
 def check_reportable(projection: Projection) -> None:
-    if all(
-        math.isfinite(value) and abs(value) < MAX_REPORTED_MONEY
-        for value in money_values(projection)
-    ):
+    check_reportable_values(money_values(projection))
+
+
+def check_reportable_values(values: Iterable[float]) -> None:
+    if all(math.isfinite(value) and abs(value) < MAX_REPORTED_MONEY for value in values):
         return
     raise UnreportableProjectionError(
         f"The projection reaches money values of {MAX_REPORTED_MONEY:,} or more, or values too "

@@ -17,6 +17,7 @@ from whatif_mcp.server.operations.projection import (
     parse_project_arguments,
 )
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
+from whatif_mcp.server.shaping import shape_horizon
 from whatif_mcp.server.tools.writing import write_model_file
 from whatif_mcp.store import load_model, resolve_model_path
 
@@ -91,14 +92,7 @@ def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
 
 def _shape_projection(projection: Projection, years: int, values: dict[str, Any]) -> dict[str, Any]:
     return {
-        "today": projection.today.isoformat(),
-        "horizon": {
-            "years": years,
-            "from": projection.periods[0].label,
-            "to": projection.periods[-1].label,
-            "end_date": projection.horizon_end.isoformat(),
-        },
-        "granularity": projection.granularity.value,
+        **shape_horizon(projection, years),
         **values,
         "periods": [
             {

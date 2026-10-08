@@ -21,3 +21,7 @@ def error_text(result: CallToolResult) -> str:
     content = result.content[0]
     assert isinstance(content, TextContent)
     return content.text
+
+
+async def what_if(client: Client, changes: list[dict[str, Any]], **options: Any) -> dict[str, Any]:
+    return await succeed(client, "what_if", {"changes": changes, **options})
