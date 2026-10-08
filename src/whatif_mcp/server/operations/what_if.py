@@ -1,6 +1,6 @@
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -45,24 +45,63 @@ class _AppliedChange:
     description: str
 
 
+@dataclass
+class _Entry:
+    baseline_name: str | None
+    hypothetical_name: str | None
+
+
+@dataclass
+class _EntryTracker:
+    entries: list[_Entry]
+    removed: dict[str, _Entry] = field(default_factory=dict)
+
+    @classmethod
+    def create(cls, baseline_names: Sequence[str]) -> "_EntryTracker":
+        return cls([_Entry(name, name) for name in baseline_names])
+
+    def set(self, previous_name: str | None, name: str) -> None:
+        if previous_name is None:
+            entry = self.removed.pop(name.casefold(), None) or self._added()
+        else:
+            entry = self._live(previous_name)
+        entry.hypothetical_name = name
+
+    def remove(self, name: str) -> None:
+        entry = self._live(name)
+        entry.hypothetical_name = None
+        self.removed[name.casefold()] = entry
+
+    def matches(self) -> tuple[EntryMatch, ...]:
+        return tuple(
+            EntryMatch(entry.baseline_name, entry.hypothetical_name)
+            for entry in self.entries
+            if entry.baseline_name is not None or entry.hypothetical_name is not None
+        )
+
+    def _added(self) -> _Entry:
+        entry = _Entry(None, None)
+        self.entries.append(entry)
+        return entry
+
+    def _live(self, name: str) -> _Entry:
+        return next(entry for entry in self.entries if entry.hypothetical_name == name)
+
+
 def apply_changes(model: Model, changes: Sequence[Change], today: date) -> AppliedChanges:
     changed = model
     descriptions = []
+    account_entries = _EntryTracker.create([account.name for account in model.accounts])
+    flow_entries = _EntryTracker.create([flow.name for flow in model.flows])
     for position, change in enumerate(changes, start=1):
         try:
-            applied = _apply(changed, change, today)
+            applied = _apply(changed, change, today, account_entries, flow_entries)
         except WhatIfError as error:
             raise change_error(position, error) from error
         changed = applied.model
         descriptions.append(applied.description)
     return AppliedChanges(
-        changed,
-        tuple(descriptions),
-        match_by_name(
-            [account.name for account in model.accounts],
-            [account.name for account in changed.accounts],
-        ),
-        match_by_name([flow.name for flow in model.flows], [flow.name for flow in changed.flows]),
+        changed, tuple(descriptions), account_entries.matches(), flow_entries.matches()
     )
 
 
@@ -70,21 +109,20 @@ def change_error(position: int, error: WhatIfError) -> ChangeError:
     return ChangeError(f"change {position}: {error}")
 
 
-def match_by_name(
-    baseline_names: Sequence[str], hypothetical_names: Sequence[str]
-) -> tuple[EntryMatch, ...]:
-    on_both_sides = set(baseline_names) & set(hypothetical_names)
-    baseline = (
-        EntryMatch(name, name if name in on_both_sides else None) for name in baseline_names
-    )
-    new = (EntryMatch(None, name) for name in hypothetical_names if name not in on_both_sides)
-    return (*baseline, *new)
-
-
-def _apply(model: Model, change: Change, today: date) -> _AppliedChange:
+def _apply(
+    model: Model,
+    change: Change,
+    today: date,
+    account_entries: _EntryTracker,
+    flow_entries: _EntryTracker,
+) -> _AppliedChange:
     op, arguments = change.op, change.arguments
     if op == SET_ACCOUNT_OP:
         account_edit = accounts.set_account(model, arguments, today)
+        account_entries.set(
+            None if account_edit.previous is None else account_edit.previous.name,
+            account_edit.account.name,
+        )
         previous = None if account_edit.previous is None else shape_account(account_edit.previous)
         return _AppliedChange(
             account_edit.model,
@@ -92,14 +130,19 @@ def _apply(model: Model, change: Change, today: date) -> _AppliedChange:
         )
     if op == SET_FLOW_OP:
         flow_edit = flows.set_flow(model, arguments, today)
+        flow_entries.set(
+            None if flow_edit.previous is None else flow_edit.previous.name, flow_edit.flow.name
+        )
         previous = None if flow_edit.previous is None else shape_flow(flow_edit.previous)
         return _AppliedChange(
             flow_edit.model, _describe_set(op, previous, shape_flow(flow_edit.flow), arguments)
         )
     if op == REMOVE_ACCOUNT_OP:
         account_removal = accounts.remove_account(model, arguments)
+        account_entries.remove(account_removal.account.name)
         return _AppliedChange(account_removal.model, f"{op} '{account_removal.account.name}'")
     flow_removal = flows.remove_flow(model, arguments)
+    flow_entries.remove(flow_removal.flow.name)
     return _AppliedChange(flow_removal.model, f"{op} '{flow_removal.flow.name}'")
 
 
