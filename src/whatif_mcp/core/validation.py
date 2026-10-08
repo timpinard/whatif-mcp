@@ -13,11 +13,17 @@ MAX_VOLATILITY = 1.0
 MIN_INFLATION_RATE = -1.0
 MAX_INFLATION_RATE = 1.0
 MAX_FLOW_RATE = 1.0
+MAX_MONEY = 1_000_000_000_000
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 DATE_PROBLEM = "is not a YYYY-MM-DD date"
 
 
 def check_account(account: Account) -> None:
+    if abs(account.balance) > MAX_MONEY:
+        raise ValidationError(
+            f"balance {account.balance:,.2f} is out of range: give at most {MAX_MONEY:,} in "
+            "absolute value."
+        )
     if account.kind is AccountKind.LIABILITY and account.balance < 0:
         raise ValidationError(
             f"balance {account.balance:g} is negative: a liability balance is the amount owed, "
@@ -59,6 +65,10 @@ def check_flow(flow: Flow) -> None:
         raise ValidationError(
             f"amount {flow.amount:g} is not above 0: give the amount moved each time as a "
             "positive number."
+        )
+    elif flow.amount > MAX_MONEY:
+        raise ValidationError(
+            f"amount {flow.amount:,.2f} is out of range: give at most {MAX_MONEY:,}."
         )
     if flow.end_date is not None and flow.end_date < flow.start_date:
         raise ValidationError(

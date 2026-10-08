@@ -39,10 +39,19 @@ def load_model(path: Path) -> Model:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return Model()
+    except UnicodeDecodeError as error:
+        raise _not_json_error(path, "its bytes are not UTF-8") from error
+    except OSError as error:
+        raise ModelFileError(
+            f"The model file {path} cannot be read: {error.strerror}. Make it a readable file, "
+            f"or point {MODEL_PATH_VARIABLE} at one."
+        ) from error
     try:
         document = json.loads(text)
     except json.JSONDecodeError as error:
-        raise ModelFileError(f"The model file {path} is not valid JSON: {error}.") from error
+        raise _not_json_error(path, str(error)) from error
+    except RecursionError as error:
+        raise _not_json_error(path, "it is nested too deeply to parse") from error
     if not isinstance(document, dict):
         raise _shape_error(path, "the top level is not an object")
     _check_version(path, document)
@@ -72,6 +81,10 @@ def save_model(path: Path, model: Model) -> None:
 
 class _ShapeProblem(Exception):
     pass
+
+
+def _not_json_error(path: Path, problem: str) -> ModelFileError:
+    return ModelFileError(f"The model file {path} is not valid JSON: {problem}.")
 
 
 def _shape_error(path: Path, problem: str) -> ModelFileError:
