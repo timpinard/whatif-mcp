@@ -7,7 +7,14 @@ from typing import Any
 import pytest
 
 from whatif_mcp.core.model import Model
-from whatif_mcp.store import ModelFileError, load_model, save_model
+from whatif_mcp.store import (
+    ACCOUNT_KEYS,
+    DOCUMENT_KEYS,
+    FLOW_KEYS,
+    ModelFileError,
+    load_model,
+    save_model,
+)
 
 
 def test_AC3_failed_write_leaves_previous_file_intact(
@@ -270,3 +277,11 @@ def test_R1_load_refuses_dates_not_in_yyyy_mm_dd_form(model_path: Path, date_tex
 
     assert str(model_path) in str(raised.value)
     assert '"start_date" is not a YYYY-MM-DD date' in str(raised.value)
+
+
+def test_R1_known_keys_are_the_keys_the_writer_emits(model_w_file: Path) -> None:
+    document = json.loads(model_w_file.read_text())
+
+    assert set(document) == DOCUMENT_KEYS
+    assert all(set(account) == ACCOUNT_KEYS for account in document["accounts"])
+    assert all(set(flow) == FLOW_KEYS for flow in document["flows"])
