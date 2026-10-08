@@ -58,6 +58,7 @@ async def test_AC27_projection_too_large_to_report_names_horizon_years(
     )
     before = model_path.read_bytes()
 
+    # 1e6 x (13/12)^600 is about 7.2e26, above 1e15
     message = await fail(client, "project", {"horizon_years": 50})
 
     assert "horizon_years" in message
@@ -88,7 +89,27 @@ async def test_R14_todays_money_too_large_to_report_names_horizon_years(
 
 @pytest.mark.anyio
 @pytest.mark.integration
-async def test_R14_file_balances_near_the_float_limit_are_a_tool_error(
+async def test_R14_todays_money_factor_underflowing_to_zero_names_horizon_years(
+    client: Client, model_path: Path
+) -> None:
+    model_path.write_text(
+        '{"version": 1, "inflation_rate": -0.9999999999, "accounts": [{"name": "Cash", '
+        '"kind": "asset", "balance": 1000, "balance_as_of": "2026-10-06", '
+        '"growth_rate": 0, "volatility": 0}], "flows": []}'
+    )
+    before = model_path.read_bytes()
+
+    # (1e-10)^50 = 1e-500, below the smallest float, so the factor is 0.0
+    message = await fail(client, "project", {"horizon_years": 50, "in_todays_money": True})
+
+    assert "horizon_years" in message
+    assert "inflation" in message
+    assert model_path.read_bytes() == before
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R1_file_balances_near_the_float_limit_are_a_shape_error(
     client: Client, model_path: Path
 ) -> None:
     model_path.write_text(

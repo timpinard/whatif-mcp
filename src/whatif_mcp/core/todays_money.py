@@ -10,7 +10,8 @@ DAYS_PER_YEAR = 365.25
 def in_todays_money(projection: Projection, inflation_rate: float) -> Projection:
     def deflate(value: float, on: date) -> float:
         years = max(0, (on - projection.today).days) / DAYS_PER_YEAR
-        return value / math.pow(1 + inflation_rate, years)
+        factor = math.pow(1 + inflation_rate, years)
+        return math.inf if factor == 0.0 else value / factor
 
     horizon_end = projection.horizon_end
     periods = tuple(

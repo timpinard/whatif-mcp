@@ -1,11 +1,11 @@
 import math
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
-from whatif_mcp.core.projection import Granularity, Projection
+from whatif_mcp.core.projection import Granularity, Projection, money_values
 from whatif_mcp.server.operations.arguments import (
     ArgumentError,
     optional_boolean,
@@ -58,7 +58,7 @@ def check_has_accounts(model: Model) -> None:
 def check_reportable(projection: Projection) -> None:
     if all(
         math.isfinite(value) and abs(value) < MAX_REPORTED_MONEY
-        for value in _money_values(projection)
+        for value in money_values(projection)
     ):
         return
     raise UnreportableProjectionError(
@@ -66,16 +66,6 @@ def check_reportable(projection: Projection) -> None:
         "large to compute. Reduce horizon_years, or the growth_rate of the accounts that grow "
         "fastest, or the inflation rate (set_inflation_rate) when in_todays_money is true."
     )
-
-
-def _money_values(projection: Projection) -> Iterator[float]:
-    for row in projection.periods:
-        yield row.net_worth
-        yield from row.balances.values()
-    for summary in projection.accounts:
-        yield from (summary.start_balance, summary.end_balance, summary.growth_total)
-    for total in projection.flows:
-        yield total.total
 
 
 def _horizon_years(arguments: Mapping[str, Any]) -> int:
