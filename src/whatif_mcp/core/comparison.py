@@ -2,8 +2,13 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
+from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.money import round_money
 from whatif_mcp.core.projection import AccountSummary, Projection
+
+
+class EntryMatchError(WhatIfError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -11,13 +16,13 @@ class EntryMatch:
     baseline_name: str | None
     hypothetical_name: str | None
 
+    def __post_init__(self) -> None:
+        if self.baseline_name is None and self.hypothetical_name is None:
+            raise EntryMatchError("An entry needs a baseline name, a hypothetical name or both.")
+
     @property
     def name(self) -> str:
-        if self.hypothetical_name is not None:
-            return self.hypothetical_name
-        if self.baseline_name is not None:
-            return self.baseline_name
-        raise ValueError("an entry is on at least one side")
+        return next(name for name in (self.hypothetical_name, self.baseline_name) if name)
 
 
 @dataclass(frozen=True)

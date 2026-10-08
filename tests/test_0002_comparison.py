@@ -79,6 +79,7 @@ async def test_AC3_one_time_purchase_shows_when_difference_appears(
     result = await what_if(client, [kitchen], horizon_years=1, granularity="monthly")
 
     differences = {row["period"]: row["difference"] for row in result["net_worth"]}
+    # the 40000 leaves Checking on 2027-04-01 and stays out to the horizon
     assert differences == {
         "2026-10": 0.0,
         "2026-11": 0.0,
@@ -109,12 +110,14 @@ async def test_AC4_paying_loan_faster_shows_payoff_and_interest_saved(
     car_loan = by_name(result["accounts"])["Car loan"]
     assert car_loan["baseline"]["reaches_zero"] == "2028-08-01"
     assert car_loan["hypothetical"]["reaches_zero"] == "2027-09-01"
+    # interest at 0.06 / 12 a month on the balance owed, until each payoff date
     assert car_loan["baseline"]["growth_total"] == 562.51
     assert car_loan["hypothetical"]["growth_total"] == 284.79
     # 284.792 - 562.506, from unrounded values
     assert car_loan["growth_difference"] == -277.71
     assert result["end_difference"] == 277.71
     car_payment = by_name(result["flows"])["Car payment"]
+    # payments stop at payoff: 10000 owed + interest (562.51 and 284.79)
     assert car_payment["baseline_total"] == 10562.51
     assert car_payment["hypothetical_total"] == 10284.79
 
@@ -154,7 +157,7 @@ async def test_AC5_every_op_applies_in_order_and_combines(
     expected_order = [
         ("set_flow", "Gym", "created"),
         ("set_flow", "Gym", "80.00"),
-        ("remove_flow", "Car payment", ""),
+        ("remove_flow", "Car payment"),
         ("set_account", "Car loan", "0.03"),
         ("set_account", "New loan", "created"),
         ("set_flow", "Borrow", "created"),
@@ -163,15 +166,38 @@ async def test_AC5_every_op_applies_in_order_and_combines(
     for description, parts in zip(applied, expected_order, strict=True):
         for part in parts:
             assert part in description
+    assert [flow["name"] for flow in result["flows"]] == ["Car payment", "Gym", "Borrow"]
     flows = by_name(result["flows"])
     # 12 occurrences x 80
     assert flows["Gym"]["hypothetical_total"] == 960.0
+    assert flows["Gym"]["baseline_total"] == 0.0
+    # 12 occurrences x 500 in the baseline
+    assert flows["Car payment"]["baseline_total"] == 6000.0
     assert flows["Car payment"]["hypothetical_total"] == 0.0
+    assert flows["Borrow"]["baseline_total"] == 0.0
     accounts = by_name(result["accounts"])
     assert accounts["New loan"]["hypothetical"]["end_balance"] == 1000.0
     # 10000 x 1.0025^12, no payments
     assert accounts["Car loan"]["hypothetical"]["end_balance"] == 10304.16
     assert accounts["New loan"]["baseline"] is None
+    # 5000 + 12 x (4000 - 500)
+    assert accounts["Checking"]["baseline"] == {
+        "end_balance": 47000.0,
+        "reaches_zero": None,
+        "growth_total": 0.0,
+    }
+    assert accounts["Savings"]["baseline"] == {
+        "end_balance": 0.0,
+        "reaches_zero": None,
+        "growth_total": 0.0,
+    }
+    # 10000 + 449.00 interest - 12 x 500 (Spec 0002 AC11 baseline)
+    assert accounts["Car loan"]["baseline"] == {
+        "end_balance": 4449.0,
+        "reaches_zero": None,
+        "growth_total": 449.0,
+    }
+    # 47000 - 4449.00
     assert result["net_worth"][-1]["baseline"] == 42551.0
 
 
@@ -203,6 +229,10 @@ async def test_AC6_one_sided_accounts_and_flows(client: Client, model_w_file: Pa
     new_fund = by_name(result["accounts"])["New fund"]
     assert new_fund["baseline"] is None
     assert new_fund["hypothetical"]["end_balance"] == 1000.0
+    # 1000.00 - 0, the missing baseline side counted as 0
+    assert new_fund["end_difference"] == 1000.0
+    # no growth rate on either side
+    assert new_fund["growth_difference"] == 0.0
 
 
 @pytest.mark.anyio

@@ -1,11 +1,19 @@
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
-from whatif_mcp.core.projection import Granularity, Projection, money_values
+from whatif_mcp.core.projection import (
+    Granularity,
+    Projection,
+    horizon_end_date,
+    money_values,
+    project,
+)
+from whatif_mcp.core.todays_money import in_todays_money
 from whatif_mcp.server.operations.arguments import (
     ArgumentError,
     optional_boolean,
@@ -46,6 +54,14 @@ def parse_project_arguments(arguments: Mapping[str, Any]) -> ProjectArguments:
         )
     is_todays_money = optional_boolean(arguments, "in_todays_money") or False
     return ProjectArguments(years, granularity, is_todays_money)
+
+
+def project_with_options(model: Model, today: date, given: ProjectArguments) -> Projection:
+    projection = project(model, today, horizon_end_date(today, given.years), given.granularity)
+    if given.is_todays_money:
+        projection = in_todays_money(projection, model.inflation_rate)
+    check_reportable(projection)
+    return projection
 
 
 def check_has_accounts(model: Model) -> None:

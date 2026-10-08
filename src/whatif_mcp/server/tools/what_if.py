@@ -1,24 +1,19 @@
-from datetime import date
 from typing import Any
 
 from mcp import types
 
 from whatif_mcp.core.comparison import AccountComparison, Comparison, compare, difference_values
-from whatif_mcp.core.model import Model
 from whatif_mcp.core.money import round_money
-from whatif_mcp.core.projection import AccountSummary, Projection, horizon_end_date, project
-from whatif_mcp.core.todays_money import in_todays_money
+from whatif_mcp.core.projection import AccountSummary
 from whatif_mcp.server.operations.projection import (
-    ProjectArguments,
     check_has_accounts,
-    check_reportable,
     check_reportable_values,
     parse_project_arguments,
+    project_with_options,
 )
 from whatif_mcp.server.operations.what_if import apply_changes
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
-from whatif_mcp.server.shaping import shape_horizon
-from whatif_mcp.server.tools.project import NOMINAL, PROJECT_SCHEMA, TODAYS_MONEY
+from whatif_mcp.server.shaping import PROJECTION_OPTION_PROPERTIES, shape_horizon, shape_values
 from whatif_mcp.store import load_model, resolve_model_path
 
 CHANGES_KEY = "changes"
@@ -40,7 +35,7 @@ WHAT_IF_SCHEMA: dict[str, Any] = {
             "description": 'Changes in order, e.g. {"op": "set_flow", "name": "Salary", '
             '"amount": 3600}.',
         },
-        **PROJECT_SCHEMA["properties"],
+        **PROJECTION_OPTION_PROPERTIES,
     },
     "required": [CHANGES_KEY],
     "additionalProperties": False,
@@ -53,28 +48,17 @@ def what_if(call: ToolCall) -> dict[str, Any]:
     model = load_model(resolve_model_path())
     check_has_accounts(model)
     applied = apply_changes(model, call.arguments[CHANGES_KEY], call.today)
-    baseline = _projection(model, call.today, given)
-    hypothetical = _projection(applied.model, call.today, given)
-    values: dict[str, Any] = {"values": NOMINAL}
-    if given.is_todays_money:
-        values = {"values": TODAYS_MONEY, "inflation_rate": model.inflation_rate}
+    baseline = project_with_options(model, call.today, given)
+    hypothetical = project_with_options(applied.model, call.today, given)
     comparison = compare(baseline, hypothetical, applied.account_matches, applied.flow_matches)
     check_reportable_values(difference_values(comparison))
     return {
         **shape_horizon(baseline, given.years),
-        **values,
+        **shape_values(given, model.inflation_rate),
         "applied": list(applied.descriptions),
         **_shape_comparison(comparison),
         "persisted": False,
     }
-
-
-def _projection(model: Model, today: date, given: ProjectArguments) -> Projection:
-    projection = project(model, today, horizon_end_date(today, given.years), given.granularity)
-    if given.is_todays_money:
-        projection = in_todays_money(projection, model.inflation_rate)
-    check_reportable(projection)
-    return projection
 
 
 def _shape_comparison(comparison: Comparison) -> dict[str, Any]:

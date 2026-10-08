@@ -10,6 +10,10 @@ from whatif_mcp.server.operations import accounts, flows
 from whatif_mcp.server.shaping import shape_account, shape_flow
 
 OP_KEY = "op"
+SET_ACCOUNT_OP = "set_account"
+REMOVE_ACCOUNT_OP = "remove_account"
+SET_FLOW_OP = "set_flow"
+REMOVE_FLOW_OP = "remove_flow"
 NAME_KEY = "name"
 MONEY_KEYS = frozenset({"balance", "amount"})
 
@@ -62,20 +66,20 @@ def match_by_name(
 def _apply(model: Model, change: Mapping[str, Any], today: date) -> _AppliedChange:
     op = change[OP_KEY]
     arguments = {key: value for key, value in change.items() if key != OP_KEY}
-    if op == "set_account":
+    if op == SET_ACCOUNT_OP:
         account_edit = accounts.set_account(model, arguments, today)
         previous = None if account_edit.previous is None else shape_account(account_edit.previous)
         return _AppliedChange(
             account_edit.model,
             _describe_set(op, previous, shape_account(account_edit.account), arguments),
         )
-    if op == "set_flow":
+    if op == SET_FLOW_OP:
         flow_edit = flows.set_flow(model, arguments, today)
-        earlier = None if flow_edit.previous is None else shape_flow(flow_edit.previous)
+        previous = None if flow_edit.previous is None else shape_flow(flow_edit.previous)
         return _AppliedChange(
-            flow_edit.model, _describe_set(op, earlier, shape_flow(flow_edit.flow), arguments)
+            flow_edit.model, _describe_set(op, previous, shape_flow(flow_edit.flow), arguments)
         )
-    if op == "remove_account":
+    if op == REMOVE_ACCOUNT_OP:
         account_removal = accounts.remove_account(model, arguments)
         return _AppliedChange(account_removal.model, f"{op} '{account_removal.account.name}'")
     flow_removal = flows.remove_flow(model, arguments)

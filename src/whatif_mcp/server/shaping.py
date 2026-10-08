@@ -3,9 +3,38 @@ from typing import Any
 
 from whatif_mcp.core.model import Account, Flow
 from whatif_mcp.core.money import round_money
-from whatif_mcp.core.projection import Projection
+from whatif_mcp.core.projection import Granularity, Projection
+from whatif_mcp.server.operations.projection import (
+    DEFAULT_GRANULARITY,
+    DEFAULT_HORIZON_YEARS,
+    MAX_HORIZON_YEARS,
+    MAX_MONTHLY_HORIZON_YEARS,
+    MIN_HORIZON_YEARS,
+    ProjectArguments,
+)
 
 FLOW_RESULT_KEYS = {"from_account": "from", "to_account": "to"}
+NOMINAL = "nominal"
+TODAYS_MONEY = "todays_money"
+
+PROJECTION_OPTION_PROPERTIES: dict[str, Any] = {
+    "horizon_years": {
+        "type": "integer",
+        "minimum": MIN_HORIZON_YEARS,
+        "maximum": MAX_HORIZON_YEARS,
+        "description": f"Years ahead, default {DEFAULT_HORIZON_YEARS}.",
+    },
+    "granularity": {
+        "type": "string",
+        "enum": [granularity.value for granularity in Granularity],
+        "description": f"One row per period, default {DEFAULT_GRANULARITY.value}. "
+        f"monthly only up to {MAX_MONTHLY_HORIZON_YEARS} years.",
+    },
+    "in_todays_money": {
+        "type": "boolean",
+        "description": "Deflate every value to today's money by the model's inflation rate.",
+    },
+}
 
 
 def shape_account(account: Account) -> dict[str, Any]:
@@ -54,3 +83,9 @@ def shape_horizon(projection: Projection, years: int) -> dict[str, Any]:
         },
         "granularity": projection.granularity.value,
     }
+
+
+def shape_values(given: ProjectArguments, inflation_rate: float) -> dict[str, Any]:
+    if given.is_todays_money:
+        return {"values": TODAYS_MONEY, "inflation_rate": inflation_rate}
+    return {"values": NOMINAL}
