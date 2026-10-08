@@ -17,6 +17,7 @@ from whatif_mcp.core.validation import (
 )
 
 MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
+HOME_PREFIX = "~"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
 FILE_VERSION = 1
 FILE_MODE = 0o600
@@ -37,13 +38,19 @@ def resolve_model_path() -> Path:
     configured = os.environ.get(MODEL_PATH_VARIABLE)
     if not configured:
         return Path.home() / DEFAULT_MODEL_PATH
-    path = Path(configured).expanduser()
+    path = _expand_home(configured)
     if not path.is_absolute():
         raise ModelFileError(
             f"{MODEL_PATH_VARIABLE} is the relative path {configured}. Set "
             f"{MODEL_PATH_VARIABLE} to an absolute path or one starting with ~."
         )
     return path
+
+
+def _expand_home(configured: str) -> Path:
+    if configured == HOME_PREFIX or configured.startswith(HOME_PREFIX + "/"):
+        return Path.home() / configured.removeprefix(HOME_PREFIX).lstrip("/")
+    return Path(configured)
 
 
 def load_model(path: Path) -> Model:
@@ -258,10 +265,10 @@ def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
     return flow
 
 
-def _check_keys(entry: Mapping[str, Any], known: frozenset[str], container: str) -> None:
+def _check_keys(entry: Mapping[str, Any], known: frozenset[str], location: str) -> None:
     unknown = [key for key in entry if key not in known]
     if unknown:
-        raise _ShapeProblem(f'"{unknown[0]}" is not a key of {container}')
+        raise _ShapeProblem(f'"{unknown[0]}" is not a key of {location}')
 
 
 def _field(entry: Mapping[str, Any], key: str) -> Any:

@@ -25,7 +25,7 @@ async def test_AC29_unknown_key_does_not_match_the_shape(
     message = await fail(client, "show_model", {})
 
     assert str(model_w_file) in message
-    assert "comment" in message
+    assert '"comment"' in message
     assert model_w_file.read_bytes() == original_bytes
 
 
@@ -43,7 +43,7 @@ async def test_AC29_repeated_key_does_not_match_the_shape(
     message = await fail(client, "show_model", {})
 
     assert str(model_w_file) in message
-    assert "balance" in message
+    assert '"balance"' in message
     assert model_w_file.read_bytes() == original_bytes
 
 
@@ -115,7 +115,7 @@ async def test_AC31_relative_path_is_refused_naming_the_variable(
 
 
 @pytest.fixture
-def common_umask() -> Iterator[None]:
+def umask_022() -> Iterator[None]:
     previous_umask = os.umask(0o022)
     yield
     os.umask(previous_umask)
@@ -123,7 +123,7 @@ def common_umask() -> Iterator[None]:
 
 @pytest.mark.anyio
 @pytest.mark.integration
-@pytest.mark.usefixtures("common_umask")
+@pytest.mark.usefixtures("umask_022")
 async def test_AC31_created_directories_are_owner_only(
     client: Client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -135,3 +135,19 @@ async def test_AC31_created_directories_are_owner_only(
     assert stat.S_IMODE((tmp_path / "a").stat().st_mode) == 0o700
     assert stat.S_IMODE((tmp_path / "a" / "b").stat().st_mode) == 0o700
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R1_tilde_with_a_user_name_is_refused_as_relative(
+    client: Client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    working_directory = tmp_path / "cwd"
+    working_directory.mkdir()
+    monkeypatch.chdir(working_directory)
+    monkeypatch.setenv("WHATIF_MODEL_PATH", "~nobody/model.json")
+
+    message = await fail(client, "show_model", {})
+
+    assert "WHATIF_MODEL_PATH" in message
+    assert list(working_directory.iterdir()) == []
