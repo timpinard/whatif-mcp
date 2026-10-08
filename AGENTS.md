@@ -18,7 +18,8 @@ QA findings (bug or spec gap).
 - docs/adr/ (accepted ADRs are binding)
 
 ## Commands
-- Setup: `uv sync` (ADR 0005), and `claude plugin marketplace add <path to sdd-kit>` (the kit has no git remote)
+- Setup: `uv sync` (ADR 0005); the sdd-kit marketplace is declared in `.claude/settings.json`
+- Integration branch: spec (a per-spec branch `spec/NNNN-name`, from Spec 0002 on)
 - Gates: `scripts/gates.sh [docs/specs/NNNN-name.md [AC ids...]]`
 - Lint: `uv run --locked ruff format --check .` then `uv run --locked ruff check .`
 - Typecheck: `uv run --locked mypy src`

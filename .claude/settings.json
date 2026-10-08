@@ -1,5 +1,13 @@
 {
   "enabledPlugins": {
     "sdd-kit@sdd-kit": true
+  },
+  "extraKnownMarketplaces": {
+    "sdd-kit": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/timpinard/sdd-kit.git"
+      }
+    }
   }
 }

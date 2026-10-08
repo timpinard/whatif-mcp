@@ -40,7 +40,8 @@ prose, anti-pattern list). This file adds what is specific to this repo.
 - `logging` to stderr only. No financial values or account names in logs above DEBUG.
 
 ## Branching and commits
-- One branch per task: `task/NNNN-Tn-short-name`, cut from main. Merge to main only after the
-  human merge gate.
+- One branch per task: `task/NNNN-Tn-short-name`, cut from the integration branch (AGENTS.md) and
+  merged into it at the human merge gate. From Spec 0002 the integration branch is
+  `spec/NNNN-name`, merged to main at the owner gate after the spec's full gate passes.
 - No remote. The "PR" is the branch plus `docs/reviews/NNNN-Tn.md` (gates output + review report).
 - Author: Timothy Pinard <41369965+timpinard@users.noreply.github.com>. No Co-Authored-By trailers.
