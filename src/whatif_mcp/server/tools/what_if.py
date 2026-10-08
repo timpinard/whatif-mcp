@@ -4,18 +4,26 @@ from typing import Any
 from mcp import types
 
 from whatif_mcp.core.comparison import AccountComparison, Comparison, compare, difference_values
+from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.money import round_money
 from whatif_mcp.core.projection import AccountSummary
 from whatif_mcp.server.operations.arguments import ArgumentError
 from whatif_mcp.server.operations.projection import (
-    EmptyModelError,
     check_has_accounts,
+    check_hypothetical_has_accounts,
     check_reportable_values,
     parse_project_arguments,
     project_with_options,
 )
-from whatif_mcp.server.operations.what_if import apply_changes
-from whatif_mcp.server.registry import RegisteredTool, ToolCall
+from whatif_mcp.server.operations.what_if import (
+    OP_KEY,
+    OPS,
+    OPS_LISTED,
+    Change,
+    apply_changes,
+    change_error,
+)
+from whatif_mcp.server.registry import RegisteredTool, ToolCall, check_argument_names
 from whatif_mcp.server.shaping import PROJECTION_OPTION_PROPERTIES, shape_horizon, shape_values
 from whatif_mcp.server.tools import accounts, flows
 from whatif_mcp.store import load_model, resolve_model_path
@@ -50,14 +58,11 @@ WHAT_IF_SCHEMA: dict[str, Any] = {
 def what_if(call: ToolCall) -> dict[str, Any]:
     options = {key: value for key, value in call.arguments.items() if key != CHANGES_KEY}
     given = parse_project_arguments(options)
-    changes = _changes(call.arguments)
+    changes = _parse_changes(call.arguments)
     model = load_model(resolve_model_path())
     check_has_accounts(model)
-    applied = apply_changes(model, changes, call.today, OP_DEFINITIONS)
-    if not applied.model.accounts:
-        raise EmptyModelError(
-            "The hypothetical model has no accounts to project: the changes remove every account."
-        )
+    applied = apply_changes(model, changes, call.today)
+    check_hypothetical_has_accounts(applied.model)
     baseline = project_with_options(model, call.today, given)
     hypothetical = project_with_options(applied.model, call.today, given)
     comparison = compare(baseline, hypothetical, applied.account_matches, applied.flow_matches)
@@ -71,11 +76,34 @@ def what_if(call: ToolCall) -> dict[str, Any]:
     }
 
 
-def _changes(arguments: Mapping[str, Any]) -> list[Any]:
+def _parse_changes(arguments: Mapping[str, Any]) -> list[Change]:
     changes = arguments.get(CHANGES_KEY)
     if not isinstance(changes, list) or not changes:
         raise ArgumentError(f"{CHANGES_KEY} must be a non-empty list of changes, not {changes!r}.")
-    return changes
+    return [_parse_change(position, change) for position, change in enumerate(changes, start=1)]
+
+
+def _parse_change(position: int, change: Any) -> Change:
+    try:
+        if not isinstance(change, Mapping):
+            raise ArgumentError(
+                f"must be an object with {OP_KEY} and that tool's arguments, not {change!r}."
+            )
+        op = _parse_op(change)
+        arguments = {key: value for key, value in change.items() if key != OP_KEY}
+        check_argument_names(OP_DEFINITIONS[op], arguments)
+    except WhatIfError as error:
+        raise change_error(position, error) from error
+    return Change(op, arguments)
+
+
+def _parse_op(change: Mapping[str, Any]) -> str:
+    if OP_KEY not in change:
+        raise ArgumentError(f"{OP_KEY} is required, one of {OPS_LISTED}.")
+    op = change[OP_KEY]
+    if not isinstance(op, str) or op not in OPS:
+        raise ArgumentError(f"{OP_KEY} must be one of {OPS_LISTED}, not {op!r}.")
+    return op
 
 
 def _shape_comparison(comparison: Comparison) -> dict[str, Any]:

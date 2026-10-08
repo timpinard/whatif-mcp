@@ -4,9 +4,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from helpers import fail
+from helpers import HOSTILE_VALUES, build_arguments, fail, find_protocol_error
 from mcp import Client
-from test_0001_robustness import HOSTILE_VALUES, build_arguments, find_protocol_error
 
 from whatif_mcp.core.model import Model
 
@@ -24,6 +23,15 @@ CHANGE_OPS = ["set_account", "remove_account", "set_flow", "remove_flow"]
 HOSTILE_OPS: list[Any] = ["rename", "set_inflation_rate", "project", *HOSTILE_VALUES]
 
 PAY_CUT = {"op": "set_flow", "name": "Salary", "amount": 3600}
+
+OPS_LISTED = "set_account, remove_account, set_flow, remove_flow"
+REMOVE_EVERYTHING = [
+    {"op": "remove_flow", "name": "Salary"},
+    {"op": "remove_flow", "name": "Car payment"},
+    {"op": "remove_account", "name": "Checking"},
+    {"op": "remove_account", "name": "Savings"},
+    {"op": "remove_account", "name": "Car loan"},
+]
 
 
 def file_state(path: Path) -> tuple[bytes, int]:
@@ -47,16 +55,6 @@ async def test_AC7_failing_change_named_by_position(client: Client, model_w_file
 
     assert "change 1" in message
     assert "0.07" in message
-
-
-OPS_LISTED = "set_account, remove_account, set_flow, remove_flow"
-REMOVE_EVERYTHING = [
-    {"op": "remove_flow", "name": "Salary"},
-    {"op": "remove_flow", "name": "Car payment"},
-    {"op": "remove_account", "name": "Checking"},
-    {"op": "remove_account", "name": "Savings"},
-    {"op": "remove_account", "name": "Car loan"},
-]
 
 
 @pytest.mark.anyio
