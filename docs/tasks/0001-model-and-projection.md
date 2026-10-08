@@ -15,7 +15,7 @@ own, one agent session, one reviewable branch.
 | T6 | The user builds and corrects flows | AC8, AC9, AC10 | T4 | `scripts/gates.sh $S AC8 AC9 AC10` | | done |
 | T7 | The server runs cleanly under a real client: stdout is MCP only, logs on stderr | AC25 | T5, T6 | `scripts/gates.sh $S` | | done |
 | T8 | Bad input never corrupts the file: money caps, too-large projections refused, unreadable files named | AC27, AC28 | - | `scripts/gates.sh $S AC27 AC28` | | done |
-| T9 | Hand-edited files and paths behave: unknown and duplicate keys refused, writes through symlinks, `~` and relative paths, 0700 directories | AC29, AC30, AC31 | T8 | `scripts/gates.sh $S AC29 AC30 AC31` (full `scripts/gates.sh $S` if merged after T10) | | todo |
+| T9 | Hand-edited files and paths behave: unknown and duplicate keys refused, writes through symlinks, `~` and relative paths, 0700 directories | AC29, AC30, AC31 | T8 | `scripts/gates.sh $S AC29 AC30 AC31` (full `scripts/gates.sh $S` if merged after T10) | | done |
 | T10 | Projection reads true at the cent: reaches_zero at cents, no -0.00, start dates at most 100 years back | AC32, AC33, AC34 | T8 | `scripts/gates.sh $S AC32 AC33 AC34` (full `scripts/gates.sh $S` if merged after T9) | | todo |
 
 T2 and T3 run in parallel; so do T5 and T6, and T9 and T10. Every AC of Spec 0001 is in exactly
