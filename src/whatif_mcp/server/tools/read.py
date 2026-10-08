@@ -17,7 +17,7 @@ SHOW_MODEL_DESCRIPTION = (
 
 def show_model(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
-    model = load_model(path, call.today)
+    model = load_model(path)
     return {
         "model_path": str(path),
         "today": call.today.isoformat(),

@@ -12,7 +12,7 @@ from mcp import Client
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model
 
 ONE_YEAR_MONTHLY = {"horizon_years": 1, "granularity": "monthly"}
-ZERO_ROWS = ("2027-01", "2027-02", "2027-10")
+ZERO_PERIOD_LABELS = tuple(f"2027-{month:02d}" for month in range(1, 11))
 
 
 def emptied_account(today: date, name: str, balance: float, payment: float) -> Model:
@@ -60,7 +60,7 @@ async def test_AC32_reaches_zero_at_cents_and_no_negative_zero(
 
     assert result["accounts"][0]["reaches_zero"] == "2027-01-01"  # 30.03 - 3 x 10.01 = 3.6e-15
     balances = balances_by_period(result, "Checking")
-    assert [balances[period] for period in ZERO_ROWS] == [0.0, 0.0, 0.0]
+    assert [balances[label] for label in ZERO_PERIOD_LABELS] == [0.0] * 10  # 2027-01 to 2027-10
 
 
 @pytest.mark.anyio
@@ -81,24 +81,24 @@ async def test_AC32_no_negative_zero_anywhere_in_the_result(
 
 @pytest.mark.anyio
 @pytest.mark.integration
-async def test_AC33_start_date_at_most_100_years_back(client: Client, model_w_file: Path) -> None:
+async def test_AC33_start_date_on_or_after_1900(client: Client, model_w_file: Path) -> None:
     before = model_w_file.read_bytes()
     arguments = {"name": "Old", "to": "Checking", "amount": 1, "frequency": "weekly"}
 
-    message = await fail(client, "set_flow", {**arguments, "start_date": "1926-10-05"})
+    message = await fail(client, "set_flow", {**arguments, "start_date": "1899-12-31"})
 
     assert message.startswith("start_date ")
     assert model_w_file.read_bytes() == before
-    result = await succeed(client, "set_flow", {**arguments, "start_date": "1926-10-06"})
-    assert result["flow"]["start_date"] == "1926-10-06"
+    result = await succeed(client, "set_flow", {**arguments, "start_date": "1900-01-01"})
+    assert result["flow"]["start_date"] == "1900-01-01"
 
 
 @pytest.mark.anyio
 @pytest.mark.integration
-async def test_AC34_file_flow_starting_over_100_years_back_does_not_match_the_shape(
+async def test_AC34_file_flow_starting_before_1900_does_not_match_the_shape(
     client: Client, write_model_file: Callable[[Model], Path], model_w: Model
 ) -> None:
-    gym = Flow("Gym", "Checking", None, 50.0, None, None, Frequency.MONTHLY, date(1926, 10, 5))
+    gym = Flow("Gym", "Checking", None, 50.0, None, None, Frequency.MONTHLY, date(1899, 12, 31))
     path = write_model_file(replace(model_w, flows=(*model_w.flows, gym)))
     before = path.read_bytes()
 

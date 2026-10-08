@@ -68,7 +68,7 @@ SET_INFLATION_RATE_SCHEMA: dict[str, Any] = {
 
 def project_model(call: ToolCall) -> dict[str, Any]:
     given = parse_project_arguments(call.arguments)
-    model = load_model(resolve_model_path(), call.today)
+    model = load_model(resolve_model_path())
     check_has_accounts(model)
     horizon_end = horizon_end_date(call.today, given.years)
     projection = project(model, call.today, horizon_end, given.granularity)
@@ -82,7 +82,7 @@ def project_model(call: ToolCall) -> dict[str, Any]:
 
 def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
-    model = load_model(path, call.today)
+    model = load_model(path)
     changed = operations.set_inflation_rate(model, call.arguments)
     result = {"inflation_rate": changed.inflation_rate, "previous": model.inflation_rate}
     write_model_file(path, changed)
