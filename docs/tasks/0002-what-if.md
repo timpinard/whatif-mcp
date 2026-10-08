@@ -8,7 +8,7 @@ agent session, one reviewable branch.
 
 | ID | Vertical slice (what works afterwards, in user terms) | Covers AC | Blocked by | Gate command | Jira | Status |
 |----|--------------------------------------------------------|-----------|------------|--------------|------|--------|
-| T1 | The user asks "what if" with one or more changes and gets the comparison, nominal or in today's money; the file is never written | AC1, AC2, AC3, AC4, AC5, AC6, AC8, AC10 | - | `scripts/gates.sh $S AC1 AC2 AC3 AC4 AC5 AC6 AC8 AC10` | | todo |
+| T1 | The user asks "what if" with one or more changes and gets the comparison, nominal or in today's money; the file is never written | AC1, AC2, AC3, AC4, AC5, AC6, AC8, AC10 | - | `scripts/gates.sh $S AC1 AC2 AC3 AC4 AC5 AC6 AC8 AC10` | | done |
 | T2 | Bad change lists are refused clearly, each by its position | AC7, AC9 | T1 | `scripts/gates.sh $S AC7 AC9` | | todo |
 | T3 | Renamed and re-added accounts and flows line up with their baseline | AC11 | T2 | `scripts/gates.sh $S` | | todo |
 

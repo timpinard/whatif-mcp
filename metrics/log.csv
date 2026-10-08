@@ -9,3 +9,4 @@ date,spec_id,task_id,first_pass,regenerations,review_findings_agent,review_findi
 2026-10-08,0001,T8,no,1,15,0,,0.3,,
 2026-10-08,0001,T9,no,1,17,0,,0.2,,
 2026-10-08,0001,T10,no,1,15,0,,0.4,,
+2026-10-08,0002,T1,no,1,23,0,,0.6,312322,0.38
