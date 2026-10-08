@@ -5,6 +5,7 @@ from datetime import date
 
 from whatif_mcp.core.errors import ValidationError
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency
+from whatif_mcp.core.projection import horizon_end_date
 
 MIN_GROWTH_RATE = -1.0
 MAX_GROWTH_RATE = 1.0
@@ -14,6 +15,7 @@ MIN_INFLATION_RATE = -1.0
 MAX_INFLATION_RATE = 1.0
 MAX_FLOW_RATE = 1.0
 MAX_MONEY = 1_000_000_000_000
+MAX_YEARS_BEFORE_TODAY = 100
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 DATE_PROBLEM = "is not a YYYY-MM-DD date"
 
@@ -41,7 +43,7 @@ def check_account(account: Account) -> None:
         )
 
 
-def check_flow(flow: Flow) -> None:
+def check_flow(flow: Flow, today: date) -> None:
     if flow.from_account is None and flow.to_account is None:
         raise ValidationError(
             "from and to are both outside: a flow needs at least one account. "
@@ -69,6 +71,13 @@ def check_flow(flow: Flow) -> None:
     elif flow.amount > MAX_MONEY:
         raise ValidationError(
             f"amount {flow.amount:,.2f} is out of range: give at most {MAX_MONEY:,}."
+        )
+    earliest_start = horizon_end_date(today, -MAX_YEARS_BEFORE_TODAY)
+    if flow.start_date < earliest_start:
+        raise ValidationError(
+            f"start_date {flow.start_date.isoformat()} is more than {MAX_YEARS_BEFORE_TODAY} "
+            f"years before today ({today.isoformat()}): give a start_date on or after "
+            f"{earliest_start.isoformat()}."
         )
     if flow.end_date is not None and flow.end_date < flow.start_date:
         raise ValidationError(

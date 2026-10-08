@@ -52,7 +52,7 @@ REMOVE_FLOW_SCHEMA: dict[str, Any] = {
 
 def set_flow(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
-    edit = operations.set_flow(load_model(path), call.arguments, call.today)
+    edit = operations.set_flow(load_model(path, call.today), call.arguments, call.today)
     result: dict[str, Any] = {"created": edit.previous is None, "flow": shape_flow(edit.flow)}
     if edit.previous is not None:
         result["previous"] = shape_flow_changes(edit.previous, edit.flow)
@@ -63,7 +63,7 @@ def set_flow(call: ToolCall) -> dict[str, Any]:
 
 def remove_flow(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
-    removal = operations.remove_flow(load_model(path), call.arguments)
+    removal = operations.remove_flow(load_model(path, call.today), call.arguments)
     result = {"removed": shape_flow(removal.flow)}
     write_model_file(path, removal.model)
     return result

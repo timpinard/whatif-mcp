@@ -6,6 +6,7 @@ from datetime import date
 from enum import StrEnum
 
 from whatif_mcp.core.model import Account, AccountKind, Flow, Frequency, Model, rate_terms
+from whatif_mcp.core.money import rounds_to_zero_or_below
 from whatif_mcp.core.recurrence import occurrence_dates
 
 MONTHS_PER_QUARTER = 3
@@ -176,7 +177,11 @@ class Simulation:
 
     def _record_reaches_zero(self, event_date: date, balances_before: Mapping[str, float]) -> None:
         for name, balance in self.balances.items():
-            if name not in self.reaches_zero and balances_before[name] > 0 and balance <= 0:
+            if (
+                name not in self.reaches_zero
+                and not rounds_to_zero_or_below(balances_before[name])
+                and rounds_to_zero_or_below(balance)
+            ):
                 self.reaches_zero[name] = event_date
 
 

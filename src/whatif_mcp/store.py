@@ -53,7 +53,7 @@ def _expand_home(configured: str) -> Path:
     return Path(configured)
 
 
-def load_model(path: Path) -> Model:
+def load_model(path: Path, today: date) -> Model:
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -81,7 +81,7 @@ def load_model(path: Path) -> Model:
         if repeated_keys:
             raise _ShapeProblem(f'"{repeated_keys[0]}" is repeated within one object')
         _check_keys(document, DOCUMENT_KEYS, "the top level")
-        model = _model_from_document(document)
+        model = _model_from_document(document, today)
         _check_names(model)
     except _ShapeProblem as problem:
         raise _shape_error(path, str(problem)) from problem
@@ -206,14 +206,15 @@ def _document_from_flow(flow: Flow) -> dict[str, Any]:
     }
 
 
-def _model_from_document(document: Mapping[str, Any]) -> Model:
+def _model_from_document(document: Mapping[str, Any], today: date) -> Model:
     return Model(
         accounts=tuple(
             _account_from_document(_object(entry, "accounts"))
             for entry in _list(document, "accounts")
         ),
         flows=tuple(
-            _flow_from_document(_object(entry, "flows")) for entry in _list(document, "flows")
+            _flow_from_document(_object(entry, "flows"), today)
+            for entry in _list(document, "flows")
         ),
         inflation_rate=_inflation_rate(document),
     )
@@ -245,7 +246,7 @@ def _account_from_document(entry: Mapping[str, Any]) -> Account:
     return account
 
 
-def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
+def _flow_from_document(entry: Mapping[str, Any], today: date) -> Flow:
     _check_keys(entry, FLOW_KEYS, "a flow")
     flow = Flow(
         name=_text(entry, "name"),
@@ -259,7 +260,7 @@ def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
         end_date=_optional(entry, "end_date", _date),
     )
     try:
-        check_flow(flow)
+        check_flow(flow, today)
     except ValidationError as error:
         raise _ShapeProblem(f'flow "{flow.name}": {str(error).rstrip(".")}') from error
     return flow

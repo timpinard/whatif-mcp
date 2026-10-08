@@ -77,7 +77,7 @@ def set_flow(model: Model, arguments: Mapping[str, Any], today: date) -> FlowEdi
         if given.new_name is not None:
             _check_free_name(model, existing, given.new_name)
             flow = replace(flow, name=given.new_name)
-    check_flow(flow)
+    check_flow(flow, today)
     if given.is_schedule_given:
         check_fires(flow, today)
     changed = _with_flow(model, existing, flow)

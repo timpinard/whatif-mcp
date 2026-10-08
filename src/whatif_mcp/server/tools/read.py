@@ -4,8 +4,9 @@ from typing import Any
 from mcp import types
 
 from whatif_mcp.core.model import Account, AccountKind
+from whatif_mcp.core.money import round_money
 from whatif_mcp.server.registry import EMPTY_INPUT_SCHEMA, RegisteredTool, ToolCall
-from whatif_mcp.server.shaping import round_money, shape_account, shape_flow
+from whatif_mcp.server.shaping import shape_account, shape_flow
 from whatif_mcp.store import load_model, resolve_model_path
 
 SHOW_MODEL_DESCRIPTION = (
@@ -16,7 +17,7 @@ SHOW_MODEL_DESCRIPTION = (
 
 def show_model(call: ToolCall) -> dict[str, Any]:
     path = resolve_model_path()
-    model = load_model(path)
+    model = load_model(path, call.today)
     return {
         "model_path": str(path),
         "today": call.today.isoformat(),
