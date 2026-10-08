@@ -16,7 +16,7 @@ own, one agent session, one reviewable branch.
 | T7 | The server runs cleanly under a real client: stdout is MCP only, logs on stderr | AC25 | T5, T6 | `scripts/gates.sh $S` | | done |
 | T8 | Bad input never corrupts the file: money caps, too-large projections refused, unreadable files named | AC27, AC28 | - | `scripts/gates.sh $S AC27 AC28` | | done |
 | T9 | Hand-edited files and paths behave: unknown and duplicate keys refused, writes through symlinks, `~` and relative paths, 0700 directories | AC29, AC30, AC31 | T8 | `scripts/gates.sh $S AC29 AC30 AC31` (full `scripts/gates.sh $S` if merged after T10) | | done |
-| T10 | Projection reads true at the cent: reaches_zero at cents, no -0.00, start dates at most 100 years back | AC32, AC33, AC34 | T8 | `scripts/gates.sh $S AC32 AC33 AC34` (full `scripts/gates.sh $S` if merged after T9) | | todo |
+| T10 | Projection reads true at the cent: reaches_zero at cents, no -0.00, start dates on or after 1900-01-01 | AC32, AC33, AC34 | T8 | `scripts/gates.sh $S AC32 AC33 AC34` (full `scripts/gates.sh $S` if merged after T9) | | todo |
 
 T2 and T3 run in parallel; so do T5 and T6, and T9 and T10. Every AC of Spec 0001 is in exactly
 one task. T7's full gate ran before the QA amendment added AC27 to AC34.
@@ -73,8 +73,9 @@ one task. T7's full gate ran before the QA amendment added AC27 to AC34.
   resolves a symlink and replaces its target; created parent directories get mode 0700. Merged
   second of T9 and T10: run the full gate.
 - T10 (S3; F6, F8): reaches_zero compares the balance rounded to cents (half up, as shaping
-  does); shaping never emits -0.0. The 100-year start_date rule lives with the other flow rules
-  in `core/validation.py`, so `set_flow` and the loader share it (AC33, AC34). Merged second of
+  does); shaping never emits -0.0. The start_date floor (1900-01-01; was a 100-year rule until
+  the Task 0001-T10 review) lives with the other flow rules in `core/validation.py`, so `set_flow`
+  and the loader share it (AC33, AC34). Merged second of
   T9 and T10: run the full gate.
 
 ## Per-task Definition of Done
