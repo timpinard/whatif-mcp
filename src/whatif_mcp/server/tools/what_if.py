@@ -14,18 +14,14 @@ from whatif_mcp.server.operations.projection import (
     parse_project_arguments,
     project_with_options,
 )
-from whatif_mcp.server.operations.what_if import OPS, apply_changes
+from whatif_mcp.server.operations.what_if import apply_changes
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
 from whatif_mcp.server.shaping import PROJECTION_OPTION_PROPERTIES, shape_horizon, shape_values
 from whatif_mcp.server.tools import accounts, flows
 from whatif_mcp.store import load_model, resolve_model_path
 
 CHANGES_KEY = "changes"
-OP_DEFINITIONS = {
-    tool.definition.name: tool.definition
-    for tool in (*accounts.TOOLS, *flows.TOOLS)
-    if tool.definition.name in OPS
-}
+OP_DEFINITIONS = {tool.definition.name: tool.definition for tool in (*accounts.TOOLS, *flows.TOOLS)}
 
 WHAT_IF_DESCRIPTION = (
     "Compare the model as it is (the baseline) with a copy changed by a list of changes, "
