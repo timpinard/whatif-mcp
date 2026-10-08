@@ -1,6 +1,6 @@
 # Spec 0001: Model and projection
-- Status: implemented (Task 0001-T7 merged 2026-10-07; full gate green); amended after the QA
-  pass, fix tasks Task 0001-T8 to T10 open
+- Status: implemented (Task 0001-T7 merged 2026-10-07; after the QA amendment, Task 0001-T8 to T10
+  merged 2026-10-08; full gate green, AC1 to AC34)
 - Approved by: Timothy Pinard, 2026-10-06
 - Amended: 2026-10-06, before implementation, by the owner: answers to the plan's spec gaps
   (R1, R2, R4, R14, R19, rounding under Interfaces). 2026-10-07, before Task 0001-T2, by the
