@@ -20,7 +20,13 @@ MODEL_PATH_VARIABLE = "WHATIF_MODEL_PATH"
 DEFAULT_MODEL_PATH = Path(".whatif") / "model.json"
 FILE_VERSION = 1
 FILE_MODE = 0o600
+DIRECTORY_MODE = 0o700
 TEMP_SUFFIX = ".tmp"
+DOCUMENT_KEYS = frozenset({"version", "inflation_rate", "accounts", "flows"})
+ACCOUNT_KEYS = frozenset({"name", "kind", "balance", "balance_as_of", "growth_rate", "volatility"})
+FLOW_KEYS = frozenset(
+    {"name", "from", "to", "amount", "rate", "rate_of", "frequency", "start_date", "end_date"}
+)
 
 
 class ModelFileError(WhatIfError):
@@ -29,9 +35,15 @@ class ModelFileError(WhatIfError):
 
 def resolve_model_path() -> Path:
     configured = os.environ.get(MODEL_PATH_VARIABLE)
-    if configured:
-        return Path(configured)
-    return Path.home() / DEFAULT_MODEL_PATH
+    if not configured:
+        return Path.home() / DEFAULT_MODEL_PATH
+    path = Path(configured).expanduser()
+    if not path.is_absolute():
+        raise ModelFileError(
+            f"{MODEL_PATH_VARIABLE} is the relative path {configured}. Set "
+            f"{MODEL_PATH_VARIABLE} to an absolute path or one starting with ~."
+        )
+    return path
 
 
 def load_model(path: Path) -> Model:
@@ -46,8 +58,11 @@ def load_model(path: Path) -> Model:
             f"The model file {path} cannot be read: {error.strerror}. Make it a readable file, "
             f"or point {MODEL_PATH_VARIABLE} at one."
         ) from error
+    repeated_keys: list[str] = []
     try:
-        document = json.loads(text)
+        document = json.loads(
+            text, object_pairs_hook=lambda pairs: _object_from_pairs(pairs, repeated_keys)
+        )
     except json.JSONDecodeError as error:
         raise _not_json_error(path, str(error)) from error
     except RecursionError as error:
@@ -56,6 +71,9 @@ def load_model(path: Path) -> Model:
         raise _shape_error(path, "the top level is not an object")
     _check_version(path, document)
     try:
+        if repeated_keys:
+            raise _ShapeProblem(f'"{repeated_keys[0]}" is repeated within one object')
+        _check_keys(document, DOCUMENT_KEYS, "the top level")
         model = _model_from_document(document)
         _check_names(model)
     except _ShapeProblem as problem:
@@ -64,23 +82,39 @@ def load_model(path: Path) -> Model:
 
 
 def save_model(path: Path, model: Model) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    target = path.resolve()
+    _create_directories(target.parent)
     content = json.dumps(_document_from_model(model), indent=2) + "\n"
-    descriptor, temp_name = tempfile.mkstemp(dir=path.parent, suffix=TEMP_SUFFIX)
+    descriptor, temp_name = tempfile.mkstemp(dir=target.parent, suffix=TEMP_SUFFIX)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as temp_file:
             temp_file.write(content)
             temp_file.flush()
             os.fsync(temp_file.fileno())
         os.chmod(temp_name, FILE_MODE)
-        os.replace(temp_name, path)
+        os.replace(temp_name, target)
     except BaseException:
         Path(temp_name).unlink(missing_ok=True)
         raise
 
 
+def _create_directories(directory: Path) -> None:
+    missing = [ancestor for ancestor in (directory, *directory.parents) if not ancestor.exists()]
+    for ancestor in reversed(missing):
+        ancestor.mkdir(mode=DIRECTORY_MODE, exist_ok=True)
+
+
 class _ShapeProblem(Exception):
     pass
+
+
+def _object_from_pairs(pairs: list[tuple[str, Any]], repeated_keys: list[str]) -> dict[str, Any]:
+    entry: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in entry:
+            repeated_keys.append(key)
+        entry[key] = value
+    return entry
 
 
 def _not_json_error(path: Path, problem: str) -> ModelFileError:
@@ -188,6 +222,7 @@ def _inflation_rate(document: Mapping[str, Any]) -> float:
 
 
 def _account_from_document(entry: Mapping[str, Any]) -> Account:
+    _check_keys(entry, ACCOUNT_KEYS, "an account")
     account = Account(
         name=_text(entry, "name"),
         kind=_choice(entry, "kind", AccountKind),
@@ -204,6 +239,7 @@ def _account_from_document(entry: Mapping[str, Any]) -> Account:
 
 
 def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
+    _check_keys(entry, FLOW_KEYS, "a flow")
     flow = Flow(
         name=_text(entry, "name"),
         from_account=_optional(entry, "from", _text),
@@ -220,6 +256,12 @@ def _flow_from_document(entry: Mapping[str, Any]) -> Flow:
     except ValidationError as error:
         raise _ShapeProblem(f'flow "{flow.name}": {str(error).rstrip(".")}') from error
     return flow
+
+
+def _check_keys(entry: Mapping[str, Any], known: frozenset[str], container: str) -> None:
+    unknown = [key for key in entry if key not in known]
+    if unknown:
+        raise _ShapeProblem(f'"{unknown[0]}" is not a key of {container}')
 
 
 def _field(entry: Mapping[str, Any], key: str) -> Any:
