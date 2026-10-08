@@ -1,3 +1,4 @@
+import random
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -5,8 +6,22 @@ from typing import Any
 import pytest
 from helpers import fail
 from mcp import Client
+from test_0001_robustness import HOSTILE_VALUES, build_arguments, find_protocol_error
 
 from whatif_mcp.core.model import Model
+
+SEED = 20261008
+CALL_COUNT = 400
+RESET_EVERY = 40
+EMPTY_MODEL_SHARE = 0.2
+HOSTILE_CHANGES_SHARE = 0.05
+MAX_CHANGES = 4
+HOSTILE_CHANGE_SHARE = 0.15
+HOSTILE_OP_SHARE = 0.15
+OPTIONS_SHARE = 0.3
+SHOWN_FAILURE_LENGTH = 300
+CHANGE_OPS = ["set_account", "remove_account", "set_flow", "remove_flow"]
+HOSTILE_OPS: list[Any] = ["rename", "set_inflation_rate", "project", *HOSTILE_VALUES]
 
 PAY_CUT = {"op": "set_flow", "name": "Salary", "amount": 3600}
 
@@ -94,7 +109,9 @@ async def test_R6_change_that_is_not_an_object_refused(client: Client, model_w_f
 
 @pytest.mark.anyio
 @pytest.mark.integration
-async def test_R6_op_missing_or_not_a_known_text_refused(client: Client, model_w_file: Path) -> None:
+async def test_R6_op_missing_or_not_a_known_text_refused(
+    client: Client, model_w_file: Path
+) -> None:
     for malformed in [{}, {"op": None}, {"op": ["set_flow"]}, {"op": {}}, {"op": "Set_Flow"}]:
         message = await refuse(client, [PAY_CUT, malformed])
         assert "change 2" in message
@@ -124,3 +141,40 @@ async def test_R6_baseline_without_accounts_checked_before_any_change(
     message = await refuse(client, [{"op": "remove_account", "name": "Checking"}])
 
     assert message == project_message
+
+
+def build_change(generator: random.Random) -> Any:
+    if generator.random() < HOSTILE_CHANGE_SHARE:
+        return generator.choice(HOSTILE_VALUES)
+    op = generator.choice(CHANGE_OPS)
+    change: dict[str, Any] = {"op": op, **build_arguments(generator, op)}
+    if generator.random() < HOSTILE_OP_SHARE:
+        change["op"] = generator.choice(HOSTILE_OPS)
+    return change
+
+
+def build_what_if_arguments(generator: random.Random) -> dict[str, Any]:
+    changes: Any = [build_change(generator) for _ in range(generator.randint(0, MAX_CHANGES))]
+    if generator.random() < HOSTILE_CHANGES_SHARE:
+        changes = generator.choice(HOSTILE_VALUES)
+    options = build_arguments(generator, "project") if generator.random() < OPTIONS_SHARE else {}
+    return {"changes": changes, **options}
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R6_hostile_change_lists_never_return_an_internal_error(
+    client: Client, model_w: Model, write_model_file: Callable[[Model], Path]
+) -> None:
+    generator = random.Random(SEED)
+    failures: list[str] = []
+
+    for call_number in range(CALL_COUNT):
+        if call_number % RESET_EVERY == 0:
+            write_model_file(Model() if generator.random() < EMPTY_MODEL_SHARE else model_w)
+        arguments = build_what_if_arguments(generator)
+        failure = await find_protocol_error(client, "what_if", arguments)
+        if failure is not None:
+            failures.append(failure[:SHOWN_FAILURE_LENGTH])
+
+    assert not failures, "\n".join(failures)
