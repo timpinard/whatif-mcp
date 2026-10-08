@@ -63,7 +63,7 @@ def call_tool(
 ) -> types.CallToolResult:
     try:
         tool = _find_tool(tools_by_name, tool_name)
-        _check_argument_names(tool.definition, call.arguments)
+        check_argument_names(tool.definition, call.arguments)
         result = tool.handler(call)
     except WhatIfError as error:
         return types.CallToolResult(
@@ -83,7 +83,7 @@ def _find_tool(tools_by_name: Mapping[str, RegisteredTool], tool_name: str) -> R
     return tools_by_name[tool_name]
 
 
-def _check_argument_names(definition: types.Tool, arguments: Mapping[str, Any]) -> None:
+def check_argument_names(definition: types.Tool, arguments: Mapping[str, Any]) -> None:
     known = list(definition.input_schema.get("properties", {}))
     unknown = [argument for argument in arguments if argument not in known]
     if unknown:

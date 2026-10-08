@@ -4,9 +4,14 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from mcp import types
+
 from whatif_mcp.core.comparison import EntryMatch
+from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
 from whatif_mcp.server.operations import accounts, flows
+from whatif_mcp.server.operations.arguments import ArgumentError
+from whatif_mcp.server.registry import check_argument_names
 from whatif_mcp.server.shaping import shape_account, shape_flow
 
 OP_KEY = "op"
@@ -14,8 +19,13 @@ SET_ACCOUNT_OP = "set_account"
 REMOVE_ACCOUNT_OP = "remove_account"
 SET_FLOW_OP = "set_flow"
 REMOVE_FLOW_OP = "remove_flow"
+OPS = (SET_ACCOUNT_OP, REMOVE_ACCOUNT_OP, SET_FLOW_OP, REMOVE_FLOW_OP)
 NAME_KEY = "name"
 MONEY_KEYS = frozenset({"balance", "amount"})
+
+
+class ChangeError(WhatIfError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -33,12 +43,18 @@ class _AppliedChange:
 
 
 def apply_changes(
-    model: Model, changes: Sequence[Mapping[str, Any]], today: date
+    model: Model,
+    changes: Sequence[Any],
+    today: date,
+    op_definitions: Mapping[str, types.Tool],
 ) -> AppliedChanges:
     changed = model
     descriptions = []
-    for change in changes:
-        applied = _apply(changed, change, today)
+    for position, change in enumerate(changes, start=1):
+        try:
+            applied = _apply(changed, change, today, op_definitions)
+        except WhatIfError as error:
+            raise ChangeError(f"change {position}: {error}") from error
         changed = applied.model
         descriptions.append(applied.description)
     return AppliedChanges(
@@ -63,9 +79,16 @@ def match_by_name(
     return (*baseline, *new)
 
 
-def _apply(model: Model, change: Mapping[str, Any], today: date) -> _AppliedChange:
-    op = change[OP_KEY]
+def _apply(
+    model: Model, change: Any, today: date, op_definitions: Mapping[str, types.Tool]
+) -> _AppliedChange:
+    if not isinstance(change, Mapping):
+        raise ArgumentError(
+            f"must be an object with {OP_KEY} and that tool's arguments, not {change!r}."
+        )
+    op = _op(change)
     arguments = {key: value for key, value in change.items() if key != OP_KEY}
+    check_argument_names(op_definitions[op], arguments)
     if op == SET_ACCOUNT_OP:
         account_edit = accounts.set_account(model, arguments, today)
         previous = None if account_edit.previous is None else shape_account(account_edit.previous)
@@ -84,6 +107,15 @@ def _apply(model: Model, change: Mapping[str, Any], today: date) -> _AppliedChan
         return _AppliedChange(account_removal.model, f"{op} '{account_removal.account.name}'")
     flow_removal = flows.remove_flow(model, arguments)
     return _AppliedChange(flow_removal.model, f"{op} '{flow_removal.flow.name}'")
+
+
+def _op(change: Mapping[str, Any]) -> str:
+    if OP_KEY not in change:
+        raise ArgumentError(f"{OP_KEY} is required, one of {', '.join(OPS)}.")
+    op = change[OP_KEY]
+    if not isinstance(op, str) or op not in OPS:
+        raise ArgumentError(f"{OP_KEY} must be one of {', '.join(OPS)}, not {op!r}.")
+    return op
 
 
 def _describe_set(
