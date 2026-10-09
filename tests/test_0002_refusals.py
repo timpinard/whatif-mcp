@@ -176,3 +176,27 @@ async def test_R6_hostile_change_lists_never_return_an_internal_error(
             failures.append(failure[:SHOWN_FAILURE_LENGTH])
 
     assert not failures, "\n".join(failures)
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC14_change_list_limited_to_1000(client: Client, model_w_file: Path) -> None:
+    unchanged_salary = {"op": "set_flow", "name": "Salary", "amount": 4000}
+
+    result = await client.call_tool(
+        "what_if", {"changes": [unchanged_salary] * 1000, "horizon_years": 1}
+    )
+
+    assert not result.is_error
+    assert result.structured_content is not None
+    assert result.structured_content["end_difference"] == 0.0
+
+    before = file_state(model_w_file)
+
+    message = await fail(
+        client, "what_if", {"changes": [unchanged_salary] * 1001, "horizon_years": 1}
+    )
+
+    assert "changes" in message
+    assert "1,000" in message
+    assert file_state(model_w_file) == before

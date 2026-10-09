@@ -108,3 +108,41 @@ async def test_R7_re_creating_a_removed_account_in_another_case_resumes_it(
     assert savings["baseline"]["end_balance"] == 0.0
     assert savings["hypothetical"]["end_balance"] == 1000.0
     assert savings["end_difference"] == 1000.0
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC13_re_created_name_resumes_its_baseline_entry_first(
+    client: Client, model_w_file: Path
+) -> None:
+    renamed_away = [
+        {"op": "set_flow", "name": "Salary", "new_name": "Pay"},
+        {"op": "remove_flow", "name": "Pay"},
+        {"op": "set_flow", **SALARY},
+    ]
+
+    result = await what_if(client, renamed_away, horizon_years=1)
+
+    assert result["flows"] == []
+    assert result["end_difference"] == 0.0
+
+    renamed_onto = [
+        {"op": "remove_flow", "name": "Salary"},
+        {"op": "set_flow", "name": "Car payment", "new_name": "Salary"},
+        {"op": "remove_flow", "name": "Salary"},
+        {"op": "set_flow", **SALARY},
+    ]
+
+    result = await what_if(client, renamed_onto, horizon_years=1)
+
+    # 12 x 500 in the baseline, none in the hypothetical
+    assert result["flows"] == [
+        {
+            "name": "Car payment",
+            "baseline_total": 6000.0,
+            "hypothetical_total": 0.0,
+            "difference": -6000.0,
+        }
+    ]
+    # 5000 + 12 x 4000 = 53000.00; 10000 x 1.005^12 = 10616.78; 53000.00 - 10616.78 - 42551.00
+    assert result["end_difference"] == -167.78
