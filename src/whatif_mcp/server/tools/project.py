@@ -3,25 +3,17 @@ from typing import Any
 from mcp import types
 
 from whatif_mcp.core.money import round_money
-from whatif_mcp.core.projection import Granularity, Projection, horizon_end_date, project
-from whatif_mcp.core.todays_money import in_todays_money
+from whatif_mcp.core.projection import Projection
 from whatif_mcp.server.operations import inflation as operations
 from whatif_mcp.server.operations.projection import (
-    DEFAULT_GRANULARITY,
-    DEFAULT_HORIZON_YEARS,
-    MAX_HORIZON_YEARS,
-    MAX_MONTHLY_HORIZON_YEARS,
-    MIN_HORIZON_YEARS,
     check_has_accounts,
-    check_reportable,
     parse_project_arguments,
+    project_with_options,
 )
 from whatif_mcp.server.registry import RegisteredTool, ToolCall
+from whatif_mcp.server.shaping import PROJECTION_OPTION_PROPERTIES, shape_horizon, shape_values
 from whatif_mcp.server.tools.writing import write_model_file
 from whatif_mcp.store import load_model, resolve_model_path
-
-NOMINAL = "nominal"
-TODAYS_MONEY = "todays_money"
 
 PROJECT_DESCRIPTION = (
     "Project every account's balance and net worth forward from today, one row per period, "
@@ -35,24 +27,7 @@ SET_INFLATION_RATE_DESCRIPTION = (
 
 PROJECT_SCHEMA: dict[str, Any] = {
     "type": "object",
-    "properties": {
-        "horizon_years": {
-            "type": "integer",
-            "minimum": MIN_HORIZON_YEARS,
-            "maximum": MAX_HORIZON_YEARS,
-            "description": f"Years ahead, default {DEFAULT_HORIZON_YEARS}.",
-        },
-        "granularity": {
-            "type": "string",
-            "enum": [granularity.value for granularity in Granularity],
-            "description": f"One row per period, default {DEFAULT_GRANULARITY.value}. "
-            f"monthly only up to {MAX_MONTHLY_HORIZON_YEARS} years.",
-        },
-        "in_todays_money": {
-            "type": "boolean",
-            "description": "Deflate every value to today's money by the model's inflation rate.",
-        },
-    },
+    "properties": PROJECTION_OPTION_PROPERTIES,
     "additionalProperties": False,
 }
 
@@ -70,14 +45,8 @@ def project_model(call: ToolCall) -> dict[str, Any]:
     given = parse_project_arguments(call.arguments)
     model = load_model(resolve_model_path())
     check_has_accounts(model)
-    horizon_end = horizon_end_date(call.today, given.years)
-    projection = project(model, call.today, horizon_end, given.granularity)
-    values: dict[str, Any] = {"values": NOMINAL}
-    if given.is_todays_money:
-        projection = in_todays_money(projection, model.inflation_rate)
-        values = {"values": TODAYS_MONEY, "inflation_rate": model.inflation_rate}
-    check_reportable(projection)
-    return _shape_projection(projection, given.years, values)
+    projection = project_with_options(model, call.today, given)
+    return _shape_projection(projection, given.years, shape_values(given, model.inflation_rate))
 
 
 def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
@@ -91,14 +60,7 @@ def set_inflation_rate(call: ToolCall) -> dict[str, Any]:
 
 def _shape_projection(projection: Projection, years: int, values: dict[str, Any]) -> dict[str, Any]:
     return {
-        "today": projection.today.isoformat(),
-        "horizon": {
-            "years": years,
-            "from": projection.periods[0].label,
-            "to": projection.periods[-1].label,
-            "end_date": projection.horizon_end.isoformat(),
-        },
-        "granularity": projection.granularity.value,
+        **shape_horizon(projection, years),
         **values,
         "periods": [
             {

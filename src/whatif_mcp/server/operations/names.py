@@ -22,8 +22,8 @@ def clean_name(argument: str, value: str) -> str:
 
 
 def find_named[NamedT: Named](items: Iterable[NamedT], name: str) -> NamedT | None:
-    wanted = _matching_key(name)
-    return next((item for item in items if _matching_key(item.name) == wanted), None)
+    wanted = matching_key(name)
+    return next((item for item in items if matching_key(item.name) == wanted), None)
 
 
 def resolve_named[NamedT: Named](
@@ -42,5 +42,5 @@ def name_list(items: Iterable[Named]) -> str:
     return ", ".join(item.name for item in items) or "none"
 
 
-def _matching_key(name: str) -> str:
+def matching_key(name: str) -> str:
     return name.strip().casefold()
