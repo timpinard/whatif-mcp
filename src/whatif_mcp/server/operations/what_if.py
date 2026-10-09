@@ -8,6 +8,7 @@ from whatif_mcp.core.comparison import EntryMatch
 from whatif_mcp.core.errors import WhatIfError
 from whatif_mcp.core.model import Model
 from whatif_mcp.server.operations import accounts, flows
+from whatif_mcp.server.operations.names import matching_key
 from whatif_mcp.server.shaping import shape_account, shape_flow
 
 OP_KEY = "op"
@@ -62,7 +63,7 @@ class _EntryTracker:
 
     def set(self, previous_name: str | None, name: str) -> None:
         if previous_name is None:
-            entry = self.removed.pop(name.casefold(), None) or self._added()
+            entry = self.removed.pop(matching_key(name), None) or self._added()
         else:
             entry = self._live(previous_name)
         entry.hypothetical_name = name
@@ -70,7 +71,7 @@ class _EntryTracker:
     def remove(self, name: str) -> None:
         entry = self._live(name)
         entry.hypothetical_name = None
-        self.removed[name.casefold()] = entry
+        self.removed[matching_key(name)] = entry
 
     def matches(self) -> tuple[EntryMatch, ...]:
         return tuple(

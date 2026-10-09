@@ -85,3 +85,26 @@ async def test_R7_rename_onto_a_name_removed_earlier_keeps_both_entries(
     assert removed_car_loan["baseline"]["end_balance"] == 4449.0
     assert removed_car_loan["hypothetical"] is None
     assert removed_car_loan["end_difference"] == -4449.0
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_R7_re_creating_a_removed_account_in_another_case_resumes_it(
+    client: Client, model_w_file: Path
+) -> None:
+    changes = [
+        {"op": "remove_account", "name": "Savings"},
+        {"op": "set_account", "name": "SAVINGS", "kind": "asset", "balance": 1000},
+    ]
+
+    result = await what_if(client, changes, horizon_years=1)
+
+    assert [account["name"] for account in result["accounts"]] == [
+        "Checking",
+        "SAVINGS",
+        "Car loan",
+    ]
+    [savings] = named(result["accounts"], "SAVINGS")
+    assert savings["baseline"]["end_balance"] == 0.0
+    assert savings["hypothetical"]["end_balance"] == 1000.0
+    assert savings["end_difference"] == 1000.0
