@@ -182,17 +182,20 @@ async def test_AC5_every_op_applies_in_order_and_combines(
     assert accounts["New loan"]["baseline"] is None
     # 5000 + 12 x (4000 - 500)
     assert accounts["Checking"]["baseline"] == {
+        "kind": "asset",
         "end_balance": 47000.0,
         "reaches_zero": None,
         "growth_total": 0.0,
     }
     assert accounts["Savings"]["baseline"] == {
+        "kind": "asset",
         "end_balance": 0.0,
         "reaches_zero": None,
         "growth_total": 0.0,
     }
     # 10000 + 449.00 interest - 12 x 500 (Spec 0002 AC11 baseline)
     assert accounts["Car loan"]["baseline"] == {
+        "kind": "liability",
         "end_balance": 4449.0,
         "reaches_zero": None,
         "growth_total": 449.0,
@@ -277,3 +280,50 @@ async def test_R2_difference_beyond_the_money_limit_is_refused_as_project_does(
     what_if_error = await fail(client, "what_if", {"changes": [as_asset], "horizon_years": 8})
 
     assert what_if_error == project_error
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC12_sub_cent_changes_are_named_in_applied(
+    client: Client, model_w_file: Path
+) -> None:
+    sub_cent_raise = {"op": "set_flow", "name": "Salary", "amount": 4000.004}
+
+    result = await what_if(client, [sub_cent_raise], horizon_years=1)
+
+    [description] = result["applied"]
+    for part in ("set_flow", "Salary", "amount", "4000.004"):
+        assert part in description
+    assert "no change" not in description
+    [salary] = result["flows"]
+    # 12 x 0.004 = 0.048
+    assert salary["name"] == "Salary"
+    assert salary["difference"] == 0.05
+
+    sub_cent_balance = {"op": "set_account", "name": "Checking", "balance": 5000.004}
+
+    result = await what_if(client, [sub_cent_balance], horizon_years=1)
+
+    [description] = result["applied"]
+    for part in ("set_account", "Checking", "balance", "5000.004"):
+        assert part in description
+
+
+@pytest.mark.anyio
+@pytest.mark.integration
+async def test_AC15_account_blocks_state_their_kind(client: Client, model_w_file: Path) -> None:
+    changes = [
+        {"op": "remove_account", "name": "Savings"},
+        {"op": "set_account", "name": "Savings", "kind": "liability", "balance": 100},
+    ]
+
+    result = await what_if(client, changes, horizon_years=1)
+
+    [savings] = [account for account in result["accounts"] if account["name"] == "Savings"]
+    assert savings["baseline"]["kind"] == "asset"
+    assert savings["baseline"]["end_balance"] == 0.0
+    assert savings["hypothetical"]["kind"] == "liability"
+    assert savings["hypothetical"]["end_balance"] == 100.0
+    assert savings["end_difference"] == 100.0
+    # an owed 100 replaces an asset of 0
+    assert result["end_difference"] == -100.0

@@ -101,7 +101,7 @@ Resolved by the owner on 2026-10-08 at the quiz and amended into Spec 0002:
 | tests/test_0002_read_only.py | AC8 | S3 | T1 |
 | tests/test_0002_refusals.py | AC7, AC9 (+ test_R6_, robustness) | S3 | T2 |
 | tests/test_0002_matching.py | AC11 (+ test_R7_) | S3 | T3 |
-| tests/test_0002_qa_fixes.py | AC12, AC13, AC14, AC15 | S3 | T4 |
+| tests/test_0002_comparison.py, test_0002_matching.py, test_0002_refusals.py | AC12, AC15; AC13; AC14 (each with its area; layout amended at the Task 0002-T4 review) | S3 | T4 |
 
 Shared fixtures: `client`, `model_w`, `model_w_file`, `write_model_file` from `tests/conftest.py`,
 unchanged. A helper that calls `what_if` and returns the structured result goes in

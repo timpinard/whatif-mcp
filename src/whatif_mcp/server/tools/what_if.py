@@ -29,6 +29,7 @@ from whatif_mcp.server.tools import accounts, flows
 from whatif_mcp.store import load_model, resolve_model_path
 
 CHANGES_KEY = "changes"
+MAX_CHANGES = 1000
 OP_DEFINITIONS = {tool.definition.name: tool.definition for tool in (*accounts.TOOLS, *flows.TOOLS)}
 
 WHAT_IF_DESCRIPTION = (
@@ -45,6 +46,7 @@ WHAT_IF_SCHEMA: dict[str, Any] = {
             "type": "array",
             "items": {"type": "object"},
             "minItems": 1,
+            "maxItems": MAX_CHANGES,
             "description": 'Changes in order, e.g. {"op": "set_flow", "name": "Salary", '
             '"amount": 3600}.',
         },
@@ -80,6 +82,10 @@ def _parse_changes(arguments: Mapping[str, Any]) -> list[Change]:
     changes = arguments.get(CHANGES_KEY)
     if not isinstance(changes, list) or not changes:
         raise ArgumentError(f"{CHANGES_KEY} must be a non-empty list of changes, not {changes!r}.")
+    if len(changes) > MAX_CHANGES:
+        raise ArgumentError(
+            f"{CHANGES_KEY} must have at most {MAX_CHANGES:,} changes, not {len(changes):,}."
+        )
     return [_parse_change(position, change) for position, change in enumerate(changes, start=1)]
 
 
@@ -146,6 +152,7 @@ def _shape_summary(summary: AccountSummary | None) -> dict[str, Any] | None:
     if summary is None:
         return None
     return {
+        "kind": summary.kind.value,
         "end_balance": round_money(summary.end_balance),
         "reaches_zero": None if summary.reaches_zero is None else summary.reaches_zero.isoformat(),
         "growth_total": round_money(summary.growth_total),

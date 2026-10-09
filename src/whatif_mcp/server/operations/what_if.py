@@ -1,15 +1,15 @@
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import date
 from typing import Any
 
 from whatif_mcp.core.comparison import EntryMatch
 from whatif_mcp.core.errors import WhatIfError
-from whatif_mcp.core.model import Model
+from whatif_mcp.core.model import Account, Flow, Model
 from whatif_mcp.server.operations import accounts, flows
 from whatif_mcp.server.operations.names import matching_key
-from whatif_mcp.server.shaping import shape_account, shape_flow
+from whatif_mcp.server.shaping import FLOW_RESULT_KEYS, shape_account, shape_flow
 
 OP_KEY = "op"
 SET_ACCOUNT_OP = "set_account"
@@ -55,7 +55,7 @@ class _Entry:
 @dataclass
 class _EntryTracker:
     entries: list[_Entry]
-    removed: dict[str, _Entry] = field(default_factory=dict)
+    removed: list[tuple[str, _Entry]] = field(default_factory=list)
 
     @classmethod
     def create(cls, baseline_names: Sequence[str]) -> "_EntryTracker":
@@ -63,7 +63,7 @@ class _EntryTracker:
 
     def set(self, previous_name: str | None, name: str) -> None:
         if previous_name is None:
-            entry = self.removed.pop(matching_key(name), None) or self._added()
+            entry = self._take_resumed(matching_key(name)) or self._added()
         else:
             entry = self._live(previous_name)
         entry.hypothetical_name = name
@@ -71,7 +71,7 @@ class _EntryTracker:
     def remove(self, name: str) -> None:
         entry = self._live(name)
         entry.hypothetical_name = None
-        self.removed[matching_key(name)] = entry
+        self.removed.append((matching_key(name), entry))
 
     def matches(self) -> tuple[EntryMatch, ...]:
         return tuple(
@@ -79,6 +79,19 @@ class _EntryTracker:
             for entry in self.entries
             if entry.baseline_name is not None or entry.hypothetical_name is not None
         )
+
+    def _take_resumed(self, key: str) -> _Entry | None:
+        by_baseline_name = (
+            entry
+            for _, entry in self.removed
+            if entry.baseline_name is not None and matching_key(entry.baseline_name) == key
+        )
+        by_removed_name = (
+            entry for removed_key, entry in reversed(self.removed) if removed_key == key
+        )
+        entry = next(by_baseline_name, None) or next(by_removed_name, None)
+        self.removed = [removal for removal in self.removed if removal[1] is not entry]
+        return entry
 
     def _added(self) -> _Entry:
         entry = _Entry(None, None)
@@ -124,20 +137,31 @@ def _apply(
             None if account_edit.previous is None else account_edit.previous.name,
             account_edit.account.name,
         )
-        previous = None if account_edit.previous is None else shape_account(account_edit.previous)
-        return _AppliedChange(
-            account_edit.model,
-            _describe_set(op, previous, shape_account(account_edit.account), arguments),
-        )
+        if account_edit.previous is None:
+            description = _describe_create(op, _shape_stored(account_edit.account), arguments)
+        else:
+            description = _describe_update(
+                op,
+                _shape_stored(account_edit.previous),
+                _shape_stored(account_edit.account),
+                _changed_keys(account_edit.previous, account_edit.account),
+            )
+        return _AppliedChange(account_edit.model, description)
     if op == SET_FLOW_OP:
         flow_edit = flows.set_flow(model, arguments, today)
         flow_entries.set(
             None if flow_edit.previous is None else flow_edit.previous.name, flow_edit.flow.name
         )
-        previous = None if flow_edit.previous is None else shape_flow(flow_edit.previous)
-        return _AppliedChange(
-            flow_edit.model, _describe_set(op, previous, shape_flow(flow_edit.flow), arguments)
-        )
+        if flow_edit.previous is None:
+            description = _describe_create(op, _shape_stored(flow_edit.flow), arguments)
+        else:
+            description = _describe_update(
+                op,
+                _shape_stored(flow_edit.previous),
+                _shape_stored(flow_edit.flow),
+                _changed_keys(flow_edit.previous, flow_edit.flow),
+            )
+        return _AppliedChange(flow_edit.model, description)
     if op == REMOVE_ACCOUNT_OP:
         account_removal = accounts.remove_account(model, arguments)
         account_entries.remove(account_removal.account.name)
@@ -147,28 +171,45 @@ def _apply(
     return _AppliedChange(flow_removal.model, f"{op} '{flow_removal.flow.name}'")
 
 
-def _describe_set(
-    op: str,
-    previous: Mapping[str, Any] | None,
-    current: Mapping[str, Any],
-    given: Mapping[str, Any],
+def _describe_create(op: str, current: Mapping[str, Any], given: Mapping[str, Any]) -> str:
+    values = (
+        f"{key} {_value(key, current[key])}" for key in current if key in given and key != NAME_KEY
+    )
+    return f"{op} '{current[NAME_KEY]}': created with {', '.join(values)}"
+
+
+def _describe_update(
+    op: str, previous: Mapping[str, Any], current: Mapping[str, Any], changed_keys: set[str]
 ) -> str:
-    if previous is None:
-        values = (
-            f"{key} {_value(key, current[key])}"
-            for key in current
-            if key in given and key != NAME_KEY
-        )
-        return f"{op} '{current[NAME_KEY]}': created with {', '.join(values)}"
     changes = [
         f"{key} {_value(key, previous[key])} -> {_value(key, current[key])}"
         for key in current
-        if previous[key] != current[key]
+        if key in changed_keys
     ]
     return f"{op} '{previous[NAME_KEY]}': {', '.join(changes) or 'no change'}"
 
 
+def _changed_keys[EntryT: (Account, Flow)](previous: EntryT, current: EntryT) -> set[str]:
+    return {
+        FLOW_RESULT_KEYS.get(entry_field.name, entry_field.name)
+        for entry_field in fields(current)
+        if getattr(previous, entry_field.name) != getattr(current, entry_field.name)
+    }
+
+
+def _shape_stored(entry: Account | Flow) -> dict[str, Any]:
+    shaped = shape_account(entry) if isinstance(entry, Account) else shape_flow(entry)
+    return {
+        key: getattr(entry, key) if key in MONEY_KEYS else value for key, value in shaped.items()
+    }
+
+
 def _value(key: str, value: Any) -> str:
     if key in MONEY_KEYS and value is not None:
-        return f"{value:.2f}"
+        return _money_text(value)
     return json.dumps(value)
+
+
+def _money_text(value: float) -> str:
+    cents_text = f"{value:.2f}"
+    return cents_text if float(cents_text) == value else repr(value)
