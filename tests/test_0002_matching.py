@@ -144,5 +144,5 @@ async def test_AC13_re_created_name_resumes_its_baseline_entry_first(
             "difference": -6000.0,
         }
     ]
-    # 5000 + 12 x 4000 = 53000.00; 10000 x 1.005^12 = 10616.78; 53000.00 - 10616.78 - 42551.00 baseline net worth
+    # 53000.00 (5000 + 12 x 4000) - 10616.78 (10000 x 1.005^12) - baseline net worth 42551.00
     assert result["end_difference"] == -167.78
