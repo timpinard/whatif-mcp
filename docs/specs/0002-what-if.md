@@ -1,5 +1,5 @@
 # Spec 0002: What-if
-- Status: approved
+- Status: implemented (Task 0002-T3 merged 2026-10-09; full gate green, AC1 to AC11)
 - Owner: Timothy Pinard
 - Approved by: Timothy Pinard (product owner), Timothy Pinard (engineer), Timothy Pinard (QA: AC
   sign-off, AC1 to AC11), 2026-10-08
