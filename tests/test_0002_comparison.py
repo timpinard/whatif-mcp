@@ -292,7 +292,7 @@ async def test_AC12_sub_cent_changes_are_named_in_applied(
     result = await what_if(client, [sub_cent_raise], horizon_years=1)
 
     [description] = result["applied"]
-    for part in ("set_flow", "Salary", "amount"):
+    for part in ("set_flow", "Salary", "amount", "4000.004"):
         assert part in description
     assert "no change" not in description
     [salary] = result["flows"]
@@ -305,7 +305,7 @@ async def test_AC12_sub_cent_changes_are_named_in_applied(
     result = await what_if(client, [sub_cent_balance], horizon_years=1)
 
     [description] = result["applied"]
-    for part in ("set_account", "Checking", "balance"):
+    for part in ("set_account", "Checking", "balance", "5000.004"):
         assert part in description
 
 

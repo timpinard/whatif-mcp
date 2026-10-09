@@ -63,7 +63,7 @@ class _EntryTracker:
 
     def set(self, previous_name: str | None, name: str) -> None:
         if previous_name is None:
-            entry = self._resumed(matching_key(name)) or self._added()
+            entry = self._take_resumed(matching_key(name)) or self._added()
         else:
             entry = self._live(previous_name)
         entry.hypothetical_name = name
@@ -80,7 +80,7 @@ class _EntryTracker:
             if entry.baseline_name is not None or entry.hypothetical_name is not None
         )
 
-    def _resumed(self, key: str) -> _Entry | None:
+    def _take_resumed(self, key: str) -> _Entry | None:
         by_baseline_name = (
             entry
             for _, entry in self.removed
@@ -138,12 +138,12 @@ def _apply(
             account_edit.account.name,
         )
         if account_edit.previous is None:
-            description = _describe_create(op, shape_account(account_edit.account), arguments)
+            description = _describe_create(op, _shape_stored(account_edit.account), arguments)
         else:
             description = _describe_update(
                 op,
-                shape_account(account_edit.previous),
-                shape_account(account_edit.account),
+                _shape_stored(account_edit.previous),
+                _shape_stored(account_edit.account),
                 _changed_keys(account_edit.previous, account_edit.account),
             )
         return _AppliedChange(account_edit.model, description)
@@ -153,12 +153,12 @@ def _apply(
             None if flow_edit.previous is None else flow_edit.previous.name, flow_edit.flow.name
         )
         if flow_edit.previous is None:
-            description = _describe_create(op, shape_flow(flow_edit.flow), arguments)
+            description = _describe_create(op, _shape_stored(flow_edit.flow), arguments)
         else:
             description = _describe_update(
                 op,
-                shape_flow(flow_edit.previous),
-                shape_flow(flow_edit.flow),
+                _shape_stored(flow_edit.previous),
+                _shape_stored(flow_edit.flow),
                 _changed_keys(flow_edit.previous, flow_edit.flow),
             )
         return _AppliedChange(flow_edit.model, description)
@@ -197,7 +197,19 @@ def _changed_keys[EntryT: (Account, Flow)](previous: EntryT, current: EntryT) ->
     }
 
 
+def _shape_stored(entry: Account | Flow) -> dict[str, Any]:
+    shaped = shape_account(entry) if isinstance(entry, Account) else shape_flow(entry)
+    return {
+        key: getattr(entry, key) if key in MONEY_KEYS else value for key, value in shaped.items()
+    }
+
+
 def _value(key: str, value: Any) -> str:
     if key in MONEY_KEYS and value is not None:
-        return f"{value:.2f}"
+        return _money_text(value)
     return json.dumps(value)
+
+
+def _money_text(value: float) -> str:
+    cents_text = f"{value:.2f}"
+    return cents_text if float(cents_text) == value else repr(value)
