@@ -11,8 +11,9 @@ agent session, one reviewable branch.
 | T1 | The user asks "what if" with one or more changes and gets the comparison, nominal or in today's money; the file is never written | AC1, AC2, AC3, AC4, AC5, AC6, AC8, AC10 | - | `scripts/gates.sh $S AC1 AC2 AC3 AC4 AC5 AC6 AC8 AC10` | | done |
 | T2 | Bad change lists are refused clearly, each by its position | AC7, AC9 | T1 | `scripts/gates.sh $S AC7 AC9` | | done |
 | T3 | Renamed and re-added accounts and flows line up with their baseline | AC11 | T2 | `scripts/gates.sh $S` | | done |
+| T4 | `applied` names sub-cent changes; a re-created name resumes its own baseline entry; change lists are capped at 1,000; account blocks state their kind | AC12, AC13, AC14, AC15 | T3 | `scripts/gates.sh $S` | | todo |
 
-Every AC of Spec 0002 is in exactly one task. T2 and T3 run in sequence: both edit
+Every AC of Spec 0002 is in exactly one task. T4 was added after the QA pass (QA 0002 record). T2 and T3 run in sequence: both edit
 `server/operations/what_if.py` (Plan 0002, Approach).
 
 ## Task notes (per task: test boundaries, interfaces it creates or changes, decisions already taken)
@@ -36,6 +37,11 @@ Every AC of Spec 0002 is in exactly one task. T2 and T3 run in sequence: both ed
   Adds a `test_R7_` test for a rename onto a name removed earlier (two entries share the name).
   Last task: runs the full gate, sets Spec 0002 Status: implemented, adds the metrics row, then the
   owner gate to merge `spec/0002-what-if` to main.
+- T4 (S3): QA fixes (QA 0002 record, F1, F2, F3, F5, F6). `applied` compares unrounded fields as
+  the tools do (F1). R7 resume order: a removed entry whose baseline name matches first, else the
+  most recently removed under that name (F2, F6). More than 1,000 changes refused with the
+  change-list shape checks, naming changes (F3). `kind` in each side's account block (F5). Last
+  task again: full gate, Spec 0002 Status implemented (build skill), metrics row.
 
 ## Per-task Definition of Done
 - [ ] Gate command green, output in the review record

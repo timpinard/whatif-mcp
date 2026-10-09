@@ -1,7 +1,8 @@
 # Plan 0002: What-if
 - Spec: Spec 0002
 - Status: approved
-- Approved by: Timothy Pinard, 2026-10-08
+- Approved by: Timothy Pinard, 2026-10-08; T4 added after the QA pass, approved by Timothy Pinard,
+  2026-10-09
 - Jira:
 
 ## Approach
@@ -33,6 +34,12 @@ Decisions taken in the quiz (2026-10-08, Timothy Pinard):
   position), then entries that exist only in the hypothetical, in creation order.
 - Projection arguments (`horizon_years`, `granularity`, `in_todays_money`) are parsed by the
   existing `parse_project_arguments`.
+
+QA fix task (2026-10-09). The QA pass on the implemented spec found one bug and seven gaps
+(QA 0002 record); the owner amended Spec 0002 (R3, R6, R7; AC12 to AC15). One slice, T4: unrounded
+`applied` comparison (F1), R7's resume order (F2, F6), the 1,000-change limit (F3), `kind` in the
+account blocks (F5). The limit is checked with the change-list shape, before the file is loaded.
+AC12 to AC15 at S3; no new test boundary.
 
 ## Test boundaries (agreed with the owner)
 A test boundary is the public boundary a test drives the system through and observes results at,
@@ -94,6 +101,7 @@ Resolved by the owner on 2026-10-08 at the quiz and amended into Spec 0002:
 | tests/test_0002_read_only.py | AC8 | S3 | T1 |
 | tests/test_0002_refusals.py | AC7, AC9 (+ test_R6_, robustness) | S3 | T2 |
 | tests/test_0002_matching.py | AC11 (+ test_R7_) | S3 | T3 |
+| tests/test_0002_qa_fixes.py | AC12, AC13, AC14, AC15 | S3 | T4 |
 
 Shared fixtures: `client`, `model_w`, `model_w_file`, `write_model_file` from `tests/conftest.py`,
 unchanged. A helper that calls `what_if` and returns the structured result goes in
